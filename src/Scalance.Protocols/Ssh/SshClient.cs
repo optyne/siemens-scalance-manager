@@ -100,15 +100,33 @@ public sealed class SshSession : IAsyncDisposable
         catch { return null; }
     }
 
+    /// <summary>
+    /// Run a sequence of CLI lines in a SINGLE SSH exec channel so that
+    /// mode-changing commands (<c>configure terminal</c>, <c>ntp</c>,
+    /// <c>events</c>, <c>ipsec</c>, <c>firewall</c>, <c>interface …</c>, …)
+    /// carry state to the commands that follow.
+    ///
+    /// The previous implementation created one exec channel per line, which
+    /// on SCALANCE SSH resets CLI state back to Privileged EXEC between
+    /// lines — so `configure terminal` opened config mode, the channel
+    /// closed, and the next `vlan 10` would then execute outside config
+    /// mode and be rejected. Joining with newlines sends all lines as a
+    /// single exec body, which the device reads through its normal CLI
+    /// input buffer and processes sequentially in one session.
+    ///
+    /// Returns a single-element list containing the combined output so the
+    /// call-site contract (IReadOnlyList&lt;string&gt;) is preserved. Callers
+    /// that care about per-command output should call <see cref="RunAsync"/>
+    /// directly on single-line commands.
+    /// </summary>
     public async Task<IReadOnlyList<string>> RunBatchAsync(IEnumerable<string> commands, CancellationToken ct = default)
     {
-        var outputs = new List<string>();
-        foreach (var c in commands)
-        {
-            ct.ThrowIfCancellationRequested();
-            outputs.Add(await RunAsync(c, ct));
-        }
-        return outputs;
+        var lines = commands?.Where(l => l is not null).ToArray() ?? Array.Empty<string>();
+        if (lines.Length == 0) return Array.Empty<string>();
+        ct.ThrowIfCancellationRequested();
+        var batch = string.Join("\n", lines);
+        var output = await RunAsync(batch, ct);
+        return new[] { output };
     }
 
     public ValueTask DisposeAsync()
