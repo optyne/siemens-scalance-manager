@@ -73,35 +73,36 @@ public static class ScalanceCliCommands
             if (!string.IsNullOrWhiteSpace(v.Name))
                 cmds.Add($"name {v.Name}");
 
-            // Build the ports command (p. 266-267).
-            // Syntax: ports (<tagged-port-list>) [untagged <untagged-port-list>]
-            //         [forbidden <forbidden-port-list>] [name <vlan-name>]
-            // Port identifiers use "M.P" format (e.g. 0.1, 0.2).
+            // Build the ports command (S615 CLI manual sec 8.1.4.5 p. 266-267).
+            // Syntax: ports (<interface-type> <port-list>) [untagged (<interface-type> <port-list>)]
+            //         [forbidden (<interface-type> <port-list>)] [name <vlan-name>]
+            //
+            // Per manual sec 3.7.5 p. 57, S615 physical ports are Fast Ethernet
+            // addressed as `fa 0/N` (interface-type `fa` + module/port `0/N`).
+            // Example: `interface fa 0/1`. NOT the dotted `0.1` form (that's
+            // WBM display format only — wrong for CLI).
             var taggedPorts = new List<string>();
             var untaggedPorts = new List<string>();
 
             foreach (var p in v.Ports)
             {
                 if (p.Mode == VlanMemberMode.Tagged)
-                    taggedPorts.Add(FormatPortId(p.PortIndex));
+                    taggedPorts.Add(FormatCliPortId(p.PortIndex));
                 else if (p.Mode == VlanMemberMode.Untagged)
-                    untaggedPorts.Add(FormatPortId(p.PortIndex));
+                    untaggedPorts.Add(FormatCliPortId(p.PortIndex));
                 // VlanMemberMode.Excluded => not included in ports command
             }
 
             if (taggedPorts.Count > 0 || untaggedPorts.Count > 0)
             {
-                // The ports command replaces the entire port list for this VLAN.
-                // Tagged ports go in the main parenthesized list;
-                // untagged ports follow the "untagged" keyword.
                 var portsCmd = "ports";
-                if (taggedPorts.Count > 0)
-                    portsCmd += $" ({string.Join(",", taggedPorts)})";
-                else
-                    portsCmd += " ()";  // empty tagged list
+                // Tagged list: "fa 0/1,0/2" inside the outer parens.
+                portsCmd += taggedPorts.Count > 0
+                    ? $" (fa {string.Join(",", taggedPorts)})"
+                    : " ()";
 
                 if (untaggedPorts.Count > 0)
-                    portsCmd += $" untagged ({string.Join(",", untaggedPorts)})";
+                    portsCmd += $" untagged (fa {string.Join(",", untaggedPorts)})";
 
                 cmds.Add(portsCmd);
             }
@@ -578,11 +579,27 @@ public static class ScalanceCliCommands
     /// If the caller already encoded module+port (e.g. 101 meaning module 1 port 1),
     /// the helper also accepts that by treating values >=100 as already dot-formatted.
     /// </summary>
+    /// <summary>
+    /// WBM display format: "M.P" (e.g. 0.1). Used only by UI/WBM-style reporting.
+    /// For CLI use <see cref="FormatCliPortId"/>.
+    /// </summary>
     public static string FormatPortId(int port)
     {
         if (port < 0) throw new ArgumentOutOfRangeException(nameof(port));
         if (port >= 100) return $"{port / 100}.{port % 100}";
         return $"0.{port}";
+    }
+
+    /// <summary>
+    /// CLI port id for ports/interface commands — returns just "0/N" (or "M/N"
+    /// when port >= 100). The interface-type keyword (e.g. "fa") is prefixed
+    /// once per parens group at the call site, per manual sec 8.1.4.5 syntax.
+    /// </summary>
+    public static string FormatCliPortId(int port)
+    {
+        if (port < 0) throw new ArgumentOutOfRangeException(nameof(port));
+        if (port >= 100) return $"{port / 100}/{port % 100}";
+        return $"0/{port}";
     }
 
     public static string PrefixToMask(int prefix)

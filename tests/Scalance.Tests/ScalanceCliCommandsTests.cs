@@ -23,9 +23,10 @@ public class ScalanceCliCommandsTests
         cmds.Should().Contain("base bridge-mode dot1q-vlan");
         cmds.Should().Contain("vlan 10");
         cmds.Should().Contain("name office");
-        // Real S615 syntax: port membership via "ports" command inside VLAN config mode
-        // with untagged ports listed after "untagged" keyword (PH_SCALANCE-S615-CLI_76 p. 266)
-        cmds.Should().Contain("ports () untagged (0.1)");
+        // Verified S615 CLI manual sec 8.1.4.5 p. 266 + sec 3.7.5 p. 57:
+        // physical ports use the "fa" (fast-ethernet) interface-type with
+        // "0/N" identifier. WBM's "0.N" format is wrong for CLI.
+        cmds.Should().Contain("ports () untagged (fa 0/1)");
     }
 
     [Fact]
@@ -49,9 +50,20 @@ public class ScalanceCliCommandsTests
     [InlineData(8, "0.8")]
     [InlineData(101, "1.1")]
     [InlineData(216, "2.16")]
-    public void FormatPortId_emits_module_dot_port(int raw, string expected)
+    public void FormatPortId_emits_WBM_dotted_format(int raw, string expected)
     {
+        // WBM display format (M.P) — used by UI layer only.
         ScalanceCliCommands.FormatPortId(raw).Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(1, "0/1")]
+    [InlineData(8, "0/8")]
+    [InlineData(101, "1/1")]
+    public void FormatCliPortId_emits_slashed_format(int raw, string expected)
+    {
+        // CLI format (M/N) — paired with "fa" keyword per S615 manual sec 3.7.5.
+        ScalanceCliCommands.FormatCliPortId(raw).Should().Be(expected);
     }
 
     [Fact]
@@ -65,9 +77,8 @@ public class ScalanceCliCommandsTests
 
         var cmds = ScalanceCliCommands.BuildSetVlans(vlans);
 
-        // Real S615 syntax: tagged ports listed in the "ports" command per VLAN
-        // (PH_SCALANCE-S615-CLI_76 p. 266)
-        cmds.Should().Contain("ports (0.2)");
+        // S615 CLI manual sec 8.1.4.5 p. 266 + sec 3.7.5: "fa 0/N" CLI form.
+        cmds.Should().Contain("ports (fa 0/2)");
         cmds.Should().Contain("vlan 10");
         cmds.Should().Contain("vlan 20");
     }

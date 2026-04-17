@@ -110,6 +110,10 @@ inferred items are limited to output parsing and edge cases.
 | `ip domain name <name>` (空格，非連字號) | PH_SCALANCE-S615-CLI_76 p. 10741 交叉引用 | **Verified by manual**。先前 `ip domain-name` 錯誤，已修正。|
 | `show dnsclient information` (非 `show dnsclient`) | PH_SCALANCE-S615-CLI_76 sec 9.7.1.1 p. 409 | **Verified by manual**。`GetDnsAsync` 已修正。|
 | `ApplyBasicWizardAsync` 組合順序 | hostname → interface → dns → ntp → password | 設計決策 — 密碼最後才改，避免中途斷線；NTP `forceExecute=true` 會跳過 DryRun。|
+| VLAN `ports (fa 0/1,0/2) untagged (fa 0/3)` | PH_SCALANCE-S615-CLI_76 sec 8.1.4.5 p. 266 + sec 3.7.5 p. 57 | **Verified by manual**。CLI 實際用 `fa 0/N`（fast-ethernet interface-type）；`0.N` dotted 形式只是 WBM 顯示格式，CLI 不接受。已新增 `FormatCliPortId`。|
+| `interface fa 0/N` vs `interface vlan N` | PH_SCALANCE-S615-CLI_76 sec 3.7.5 p. 57 | **Verified**。實體埠用 `fa 0/N`，VLAN 介面用 `vlan N`。`BuildSetInterface` 透過 `InterfaceName` 字串直傳，呼叫端需帶正確前綴。|
+| `ip route <prefix> <mask> <next-hop>` | PH_SCALANCE-S615-CLI_76 sec 9.1.2.5 p. 331 | **Verified by manual**。`ip route 0.0.0.0 0.0.0.0 <gw>` 設預設路由。|
+| `ip address <ip> <mask>` / `ip address dhcp` | PH_SCALANCE-S615-CLI_76 sec 9.1.3.2/3.3 p. 338-340 | **Verified by manual**。interface config 模式（VLAN 或 router port）。|
 
 ## Re-verification procedure
 
