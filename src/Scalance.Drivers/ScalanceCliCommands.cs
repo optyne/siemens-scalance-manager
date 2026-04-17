@@ -1295,6 +1295,40 @@ public static class ScalanceCliCommands
             nameof(host));
     }
 
+    // ---------- Event severity thresholds (manual sec 13.1.10.11 pp. 820-821) ----------
+
+    /// <summary>
+    /// Build CLI to set the severity threshold for a given event sink.
+    /// Verified against PH_SCALANCE-S615-CLI_76 sec 13.1.10.11 pp. 820-821:
+    ///   severity {mail | log | syslog} {info | warning | critical}
+    /// Emitted inside EVENTS config mode (entered via `events` from global).
+    /// </summary>
+    public static IReadOnlyList<string> BuildSetEventSeverity(EventSink sink, EventSeverity level)
+    {
+        var sinkKw = sink switch
+        {
+            EventSink.Mail => "mail",
+            EventSink.Log => "log",
+            EventSink.Syslog => "syslog",
+            _ => throw new ArgumentOutOfRangeException(nameof(sink)),
+        };
+        var levelKw = level switch
+        {
+            EventSeverity.Info => "info",
+            EventSeverity.Warning => "warning",
+            EventSeverity.Critical => "critical",
+            _ => throw new ArgumentOutOfRangeException(nameof(level)),
+        };
+        return new List<string>
+        {
+            "configure terminal",
+            "events",
+            $"severity {sinkKw} {levelKw}",
+            "end",
+            "write startup-config",
+        };
+    }
+
     // ---------- Syslog client ----------
 
     /// <summary>

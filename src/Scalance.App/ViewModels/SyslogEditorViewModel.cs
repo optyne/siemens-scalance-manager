@@ -33,6 +33,14 @@ public sealed partial class SyslogEditorViewModel : ObservableObject
     [ObservableProperty] private string newPort = "";   // blank = device default (514)
     [ObservableProperty] private bool newUseTls;
 
+    // Severity threshold dropdowns (manual sec 13.1.10.11 p. 820).
+    [ObservableProperty] private EventSeverity syslogSeverity = EventSeverity.Info;
+    [ObservableProperty] private EventSeverity logSeverity = EventSeverity.Info;
+    [ObservableProperty] private EventSeverity mailSeverity = EventSeverity.Warning;
+
+    public static EventSeverity[] SeverityValues { get; } =
+        { EventSeverity.Info, EventSeverity.Warning, EventSeverity.Critical };
+
     public ObservableCollection<SyslogServerRow> Servers { get; } = new();
 
     public SyslogEditorViewModel(DeviceOperationsService ops, DeviceSelection selection, OperationLog log)
@@ -59,6 +67,7 @@ public sealed partial class SyslogEditorViewModel : ObservableObject
             : "此設備不支援 Syslog 用戶端功能。";
         AddCommand.NotifyCanExecuteChanged();
         ApplyCommand.NotifyCanExecuteChanged();
+        ApplyThresholdsCommand.NotifyCanExecuteChanged();
     }
 
     private bool CanUse() => _selection.Current is not null && FeatureSupported && !IsBusy;
@@ -132,6 +141,38 @@ public sealed partial class SyslogEditorViewModel : ObservableObject
         finally { IsBusy = false; }
     }
 
+    [RelayCommand(CanExecute = nameof(CanUse))]
+    private async Task ApplyThresholdsAsync()
+    {
+        var d = _selection.Current;
+        if (d is null) return;
+        IsBusy = true;
+        StatusMessage = "套用事件嚴重性門檻…";
+        try
+        {
+            await using var driver = await _ops.OpenAsync(d);
+            var results = new List<(string sink, bool ok, string? msg)>();
+            foreach (var (sink, level) in new[]
+            {
+                (EventSink.Syslog, SyslogSeverity),
+                (EventSink.Log,    LogSeverity),
+                (EventSink.Mail,   MailSeverity),
+            })
+            {
+                var r = await driver.SetEventSeverityAsync(sink, level);
+                results.Add((sink.ToString().ToLowerInvariant(), r.Success, r.Message));
+                _log.Info($"Severity {sink} {level}: {(r.Success ? "OK" : r.Message)}");
+            }
+            DryRunPreview.LogIfDryRun(driver, _log, "Event severity");
+            var failed = results.Where(x => !x.ok).ToList();
+            StatusMessage = failed.Count == 0
+                ? "嚴重性門檻已套用。"
+                : $"部分失敗：{string.Join("; ", failed.Select(f => f.sink + ":" + f.msg))}";
+        }
+        catch (Exception ex) { StatusMessage = $"錯誤：{ex.Message}"; }
+        finally { IsBusy = false; }
+    }
+
     [RelayCommand]
     private void Remove(SyslogServerRow? row)
     {
@@ -153,6 +194,7 @@ public sealed partial class SyslogEditorViewModel : ObservableObject
     {
         AddCommand.NotifyCanExecuteChanged();
         ApplyCommand.NotifyCanExecuteChanged();
+        ApplyThresholdsCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnStatusMessageChanged(string? value)

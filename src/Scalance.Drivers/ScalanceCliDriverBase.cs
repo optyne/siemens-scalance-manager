@@ -958,6 +958,18 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
         catch (Exception ex) { return OperationResult<string>.Fail($"Traceroute failed: {ex.Message}", ex); }
     }
 
+    // ---------- Event severity (manual sec 13.1.10.11 pp. 820-821) ----------
+
+    public override async Task<OperationResult> SetEventSeverityAsync(EventSink sink, EventSeverity level, CancellationToken ct = default)
+    {
+        try
+        {
+            var cmds = ScalanceCliCommands.BuildSetEventSeverity(sink, level);
+            return await RunOrPlanAsync(cmds, ct);
+        }
+        catch (Exception ex) { return OperationResult.Fail($"SetEventSeverity failed: {ex.Message}", ex); }
+    }
+
     // ---------- Syslog client (manual sec 13.2 pp. 822-825) ----------
 
     public override async Task<OperationResult> AddSyslogServerAsync(SyslogServer server, CancellationToken ct = default)

@@ -64,6 +64,9 @@ public class CliCommandCoverageTests
 
         // Device restart (sec 5.3.1 p. 130-131)
         "restart",
+
+        // Event severity (sec 13.1.10.11 pp. 820-821)
+        "severity",
     };
 
     // "no <verb> ..." — when the first token is "no", validate the second token.
@@ -172,6 +175,10 @@ public class CliCommandCoverageTests
         yield return ScalanceCliCommands.FormatRestartCommand(RestartMode.Current);
         yield return ScalanceCliCommands.FormatRestartCommand(RestartMode.Memory);
         yield return ScalanceCliCommands.FormatRestartCommand(RestartMode.Factory);
+
+        // Event severity (sec 13.1.10.11 pp. 820-821)
+        foreach (var c in ScalanceCliCommands.BuildSetEventSeverity(EventSink.Syslog, EventSeverity.Warning))
+            yield return c;
     }
 
     [Fact]

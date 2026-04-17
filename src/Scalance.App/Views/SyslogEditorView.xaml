@@ -9,6 +9,7 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <StackPanel Orientation="Horizontal" Grid.Row="0">
@@ -53,8 +54,25 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <ProgressBar Grid.Row="4" Height="4" IsIndeterminate="{Binding IsBusy}" Margin="0,4"/>
-        <StatusBar Grid.Row="5">
+        <!-- Severity thresholds — manual sec 13.1.10.11 p. 820 -->
+        <Border Grid.Row="4" Margin="0,8,0,0" Padding="6" BorderBrush="#BDBDBD" BorderThickness="1" Background="#FAFAFA">
+            <StackPanel>
+                <TextBlock Text="事件嚴重性門檻（severity sink level）— 手冊 sec 13.1.10.11 p. 820"
+                           FontWeight="SemiBold" Margin="0,0,0,4"/>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Syslog：" VerticalAlignment="Center" MinWidth="70"/>
+                    <ComboBox ItemsSource="{Binding SeverityValues}" SelectedItem="{Binding SyslogSeverity}" Width="100"/>
+                    <TextBlock Text="Log：" VerticalAlignment="Center" Margin="16,0,0,0" MinWidth="50"/>
+                    <ComboBox ItemsSource="{Binding SeverityValues}" SelectedItem="{Binding LogSeverity}" Width="100"/>
+                    <TextBlock Text="Mail：" VerticalAlignment="Center" Margin="16,0,0,0" MinWidth="50"/>
+                    <ComboBox ItemsSource="{Binding SeverityValues}" SelectedItem="{Binding MailSeverity}" Width="100"/>
+                    <Button Content="套用門檻" Command="{Binding ApplyThresholdsCommand}" Margin="16,0,0,0" Padding="10,2"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <ProgressBar Grid.Row="5" Height="4" IsIndeterminate="{Binding IsBusy}" Margin="0,4"/>
+        <StatusBar Grid.Row="6">
             <StatusBarItem>
                 <TextBlock Text="{Binding StatusMessage}"/>
             </StatusBarItem>

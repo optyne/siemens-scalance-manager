@@ -97,6 +97,21 @@ public class AdminPasswordDnsTests
         act.Should().Throw<ArgumentException>();
     }
 
+    // ---------- Event severity (manual sec 13.1.10.11 pp. 820-821) ----------
+
+    [Theory]
+    [InlineData(EventSink.Mail,   EventSeverity.Info,     "severity mail info")]
+    [InlineData(EventSink.Log,    EventSeverity.Warning,  "severity log warning")]
+    [InlineData(EventSink.Syslog, EventSeverity.Critical, "severity syslog critical")]
+    public void BuildSetEventSeverity_maps_sink_and_level(EventSink sink, EventSeverity level, string expected)
+    {
+        var cmds = ScalanceCliCommands.BuildSetEventSeverity(sink, level);
+        cmds[0].Should().Be("configure terminal");
+        cmds.Should().Contain("events");
+        cmds.Should().Contain(expected);
+        cmds[^1].Should().Be("write startup-config");
+    }
+
     // ---------- Syslog (manual p. 824) ----------
 
     [Fact]

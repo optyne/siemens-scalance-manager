@@ -158,6 +158,9 @@ public abstract class SnmpDriverBase : IDeviceDriver
     public virtual Task<OperationResult> RemoveSyslogServerAsync(SyslogServer server, CancellationToken ct = default)
         => Task.FromResult(OperationResult.Fail("此設備不支援 Syslog client 設定（需使用 WBM 或 CLI）。"));
 
+    public virtual Task<OperationResult> SetEventSeverityAsync(EventSink sink, EventSeverity level, CancellationToken ct = default)
+        => Task.FromResult(OperationResult.Fail("此設備不支援事件嚴重性門檻（需要 SSH-CLI）。"));
+
     public virtual Task<OperationResult<string>> PingAsync(string host, PingOptions? options = null, CancellationToken ct = default)
         => Task.FromResult(OperationResult<string>.Fail("此設備不支援 CLI ping（僅 SSH-CLI 裝置可用）。"));
 

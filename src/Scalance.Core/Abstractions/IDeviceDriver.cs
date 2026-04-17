@@ -40,6 +40,9 @@ public interface IDeviceDriver : IAsyncDisposable
     Task<OperationResult> AddSyslogServerAsync(SyslogServer server, CancellationToken ct = default);
     Task<OperationResult> RemoveSyslogServerAsync(SyslogServer server, CancellationToken ct = default);
 
+    // Event severity thresholds — PH_SCALANCE-S615-CLI_76 sec 13.1.10.11 pp. 820-821.
+    Task<OperationResult> SetEventSeverityAsync(EventSink sink, EventSeverity level, CancellationToken ct = default);
+
     // Diagnostics: ping — PH_SCALANCE-S615-CLI_76 sec 5.1.8 p. 85-86.
     // Returns the raw CLI output so the UI can show per-packet RTT / loss.
     Task<OperationResult<string>> PingAsync(string host, PingOptions? options = null, CancellationToken ct = default);
