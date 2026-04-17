@@ -161,6 +161,9 @@ public abstract class SnmpDriverBase : IDeviceDriver
     public virtual Task<OperationResult<string>> PingAsync(string host, PingOptions? options = null, CancellationToken ct = default)
         => Task.FromResult(OperationResult<string>.Fail("此設備不支援 CLI ping（僅 SSH-CLI 裝置可用）。"));
 
+    public virtual Task<OperationResult<string>> TraceRouteAsync(string host, CancellationToken ct = default)
+        => Task.FromResult(OperationResult<string>.Fail("此設備不支援 CLI traceroute（僅 SSH-CLI 裝置可用）。"));
+
     public virtual async ValueTask DisposeAsync()
     {
         if (Snmp is not null) await Snmp.DisposeAsync();

@@ -7,6 +7,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -49,17 +50,26 @@
                        Margin="12,0,0,0" Padding="14,2"/>
         </Grid>
 
-        <TextBlock Grid.Row="3" Text="輸出：" Margin="0,8,0,2" FontWeight="Bold"/>
+        <!-- Traceroute — manual sec 5.1.10 p. 88 (IPv4/IPv6 literal only) -->
+        <StackPanel Orientation="Horizontal" Grid.Row="3" Margin="0,8">
+            <TextBlock Text="Traceroute 主機：" VerticalAlignment="Center"/>
+            <TextBox Text="{Binding TraceHost, UpdateSourceTrigger=PropertyChanged}" Width="260"
+                     ToolTip="IPv4 或 IPv6 字面值（手冊不接受 FQDN）"/>
+            <Button Content="Traceroute" Command="{Binding TraceRouteCommand}"
+                    Margin="12,0,0,0" Padding="14,2"/>
+        </StackPanel>
 
-        <TextBox Grid.Row="4" Text="{Binding Output, Mode=OneWay}"
+        <TextBlock Grid.Row="4" Text="輸出：" Margin="0,8,0,2" FontWeight="Bold"/>
+
+        <TextBox Grid.Row="5" Text="{Binding Output, Mode=OneWay}"
                  IsReadOnly="True" FontFamily="Consolas"
                  VerticalScrollBarVisibility="Auto"
                  HorizontalScrollBarVisibility="Auto"
                  AcceptsReturn="True" TextWrapping="NoWrap"
                  Background="#111" Foreground="#DCDCDC" Padding="6"/>
 
-        <ProgressBar Grid.Row="5" Height="4" IsIndeterminate="{Binding IsBusy}" Margin="0,4"/>
-        <StatusBar Grid.Row="6">
+        <ProgressBar Grid.Row="6" Height="4" IsIndeterminate="{Binding IsBusy}" Margin="0,4"/>
+        <StatusBar Grid.Row="7">
             <StatusBarItem>
                 <TextBlock Text="{Binding StatusMessage}"/>
             </StatusBarItem>

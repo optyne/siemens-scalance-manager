@@ -494,6 +494,32 @@ public class ScalanceCliCommandsTests
         act.Should().Throw<ArgumentException>();
     }
 
+    // ---- traceroute (manual sec 5.1.10 p. 88) ----
+
+    [Fact]
+    public void FormatTraceRouteCommand_ipv4()
+    {
+        ScalanceCliCommands.FormatTraceRouteCommand("10.0.0.1")
+            .Should().Be("traceroute ip 10.0.0.1");
+    }
+
+    [Fact]
+    public void FormatTraceRouteCommand_ipv6()
+    {
+        ScalanceCliCommands.FormatTraceRouteCommand("2001:db8::1")
+            .Should().Be("traceroute ipv6 2001:db8::1");
+    }
+
+    [Fact]
+    public void FormatTraceRouteCommand_rejects_fqdn()
+    {
+        // Unlike ping (p. 86), manual p. 88 only lists ip/ipv6 keywords —
+        // no fqdn-name branch. Explicit rejection avoids sending a line the
+        // device would reject.
+        var act = () => ScalanceCliCommands.FormatTraceRouteCommand("host.example.com");
+        act.Should().Throw<ArgumentException>();
+    }
+
     [Theory]
     [InlineData(1, "192.168.1.1",  "ntp server id 1 ipv4 192.168.1.1")]
     [InlineData(2, "pool.ntp.org", "ntp server id 2 fqdn-name pool.ntp.org")]

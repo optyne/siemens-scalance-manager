@@ -1096,6 +1096,38 @@ public static class ScalanceCliCommands
         return line;
     }
 
+    /// <summary>
+    /// Build the CLI line for a traceroute. Verified against
+    /// PH_SCALANCE-S615-CLI_76 sec 5.1.10 p. 88:
+    ///   traceroute {ip &lt;ip-address&gt; | ipv6 &lt;ip6-address&gt;}
+    /// Executed in Privileged EXEC mode.
+    /// </summary>
+    public static string FormatTraceRouteCommand(string host)
+    {
+        if (string.IsNullOrWhiteSpace(host))
+            throw new ArgumentException("traceroute host required", nameof(host));
+
+        // Strict IPv4 dotted-quad branch.
+        var parts = host.Split('.');
+        if (parts.Length == 4
+            && System.Net.IPAddress.TryParse(host, out var ip)
+            && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+        {
+            return $"traceroute ip {host}";
+        }
+
+        // IPv6 literal branch — manual p. 88 only supports these two forms.
+        if (System.Net.IPAddress.TryParse(host, out var ip6)
+            && ip6.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+        {
+            return $"traceroute ipv6 {host}";
+        }
+
+        throw new ArgumentException(
+            $"traceroute host '{host}' 必須是合法的 IPv4 或 IPv6 字面值（S615 manual p. 88 不接受 FQDN）。",
+            nameof(host));
+    }
+
     // ---------- Syslog client ----------
 
     /// <summary>

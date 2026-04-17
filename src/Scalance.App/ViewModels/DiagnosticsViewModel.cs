@@ -28,6 +28,9 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
     [ObservableProperty] private string pingCount = "3";
     [ObservableProperty] private string pingTimeout = "1";
 
+    // Traceroute inputs — manual p. 88 accepts ip/ipv6 literals only.
+    [ObservableProperty] private string traceHost = "";
+
     // Output window (raw device response).
     [ObservableProperty] private string output = "";
 
@@ -56,11 +59,16 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
             : FeatureSupported ? $"就緒 — {d.Name}。"
             : "此設備不支援 CLI 診斷（需要 SSH-CLI 能力）。";
         PingCommand.NotifyCanExecuteChanged();
+        TraceRouteCommand.NotifyCanExecuteChanged();
     }
 
     private bool CanPing()
         => _selection.Current is not null && FeatureSupported && !IsBusy
            && !string.IsNullOrWhiteSpace(PingHost);
+
+    private bool CanTrace()
+        => _selection.Current is not null && FeatureSupported && !IsBusy
+           && !string.IsNullOrWhiteSpace(TraceHost);
 
     [RelayCommand(CanExecute = nameof(CanPing))]
     private async Task PingAsync()
@@ -118,8 +126,33 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
         return any ? opts : null;
     }
 
-    partial void OnIsBusyChanged(bool value) => PingCommand.NotifyCanExecuteChanged();
+    [RelayCommand(CanExecute = nameof(CanTrace))]
+    private async Task TraceRouteAsync()
+    {
+        var d = _selection.Current;
+        if (d is null) return;
+
+        IsBusy = true;
+        StatusMessage = $"traceroute {TraceHost}…";
+        Output = "";
+        try
+        {
+            await using var driver = await _ops.OpenAsync(d);
+            var r = await driver.TraceRouteAsync(TraceHost.Trim());
+            Output = r.Success ? (r.Value ?? "") : $"[失敗] {r.Message}";
+            StatusMessage = r.Success ? "traceroute 完成。" : $"失敗：{r.Message}";
+        }
+        catch (Exception ex) { StatusMessage = $"錯誤：{ex.Message}"; }
+        finally { IsBusy = false; }
+    }
+
+    partial void OnIsBusyChanged(bool value)
+    {
+        PingCommand.NotifyCanExecuteChanged();
+        TraceRouteCommand.NotifyCanExecuteChanged();
+    }
     partial void OnPingHostChanged(string value) => PingCommand.NotifyCanExecuteChanged();
+    partial void OnTraceHostChanged(string value) => TraceRouteCommand.NotifyCanExecuteChanged();
 
     partial void OnStatusMessageChanged(string? value)
     {

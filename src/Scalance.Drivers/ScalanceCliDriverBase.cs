@@ -848,6 +848,22 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
         catch (Exception ex) { return OperationResult<string>.Fail($"Ping failed: {ex.Message}", ex); }
     }
 
+    public override async Task<OperationResult<string>> TraceRouteAsync(string host, CancellationToken ct = default)
+    {
+        try
+        {
+            var cmd = ScalanceCliCommands.FormatTraceRouteCommand(host);
+            var ssh = await GetSshAsync(ct);
+            // Manual p. 88: `traceroute` requires Privileged EXEC. SSH session
+            // for SCALANCE opens in Privileged EXEC by default. Read-only
+            // diagnostic — bypass DryRun.
+            var output = await ssh.RunAsync(cmd, ct);
+            return OperationResult<string>.Ok(output);
+        }
+        catch (ArgumentException ex) { return OperationResult<string>.Fail(ex.Message, ex); }
+        catch (Exception ex) { return OperationResult<string>.Fail($"Traceroute failed: {ex.Message}", ex); }
+    }
+
     // ---------- Syslog client (manual sec 13.2 pp. 822-825) ----------
 
     public override async Task<OperationResult> AddSyslogServerAsync(SyslogServer server, CancellationToken ct = default)

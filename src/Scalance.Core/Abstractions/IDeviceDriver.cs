@@ -43,6 +43,9 @@ public interface IDeviceDriver : IAsyncDisposable
     // Diagnostics: ping — PH_SCALANCE-S615-CLI_76 sec 5.1.8 p. 85-86.
     // Returns the raw CLI output so the UI can show per-packet RTT / loss.
     Task<OperationResult<string>> PingAsync(string host, PingOptions? options = null, CancellationToken ct = default);
+
+    // Diagnostics: traceroute — PH_SCALANCE-S615-CLI_76 sec 5.1.10 p. 88.
+    Task<OperationResult<string>> TraceRouteAsync(string host, CancellationToken ct = default);
 }
 
 public interface IDeviceDriverFactory
