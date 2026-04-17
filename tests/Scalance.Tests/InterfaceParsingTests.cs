@@ -6,6 +6,39 @@ namespace Scalance.Tests;
 public class InterfaceParsingTests
 {
     [Fact]
+    public void ParseNtp_modern_form_extracts_ipv4_after_keyword()
+    {
+        // S615 CLI manual sec 7.2.3.1 p. 217: `ntp server id <N> ipv4 <ip>`.
+        // Previous parser returned token[2] ("id") as the host — wrong.
+        var output = "ntp server id 1 ipv4 192.168.10.10 poll 64\nntp enable";
+        var cfg = ScalanceCliDriverBase.ParseNtp(output);
+        cfg.Servers.Should().HaveCount(1);
+        cfg.Servers[0].Host.Should().Be("192.168.10.10");
+        cfg.Enabled.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ParseNtp_modern_form_extracts_fqdn()
+    {
+        var output = "ntp server id 2 fqdn-name pool.ntp.org";
+        var cfg = ScalanceCliDriverBase.ParseNtp(output);
+        cfg.Servers.Should().HaveCount(1);
+        cfg.Servers[0].Host.Should().Be("pool.ntp.org");
+    }
+
+    [Fact]
+    public void ParseNtp_legacy_cisco_form_still_parsed()
+    {
+        // Fallback — if a device (or test fixture) still emits the old
+        // `ntp server <host>` form, don't regress.
+        var output = "ntp server 10.0.0.5";
+        var cfg = ScalanceCliDriverBase.ParseNtp(output);
+        cfg.Servers.Should().HaveCount(1);
+        cfg.Servers[0].Host.Should().Be("10.0.0.5");
+    }
+
+
+    [Fact]
     public void ParseInterfaces_reads_show_ip_interface_brief()
     {
         var output = @"Interface          IP-Address      OK? Method Status  Protocol

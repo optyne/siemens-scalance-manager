@@ -145,6 +145,7 @@ inferred items are limited to output parsing and edge cases.
 | IPsec tunnel name / RemoteEndpoint / LocalSubnet / RemoteSubnet 單一 CLI token 檢查 | PH_SCALANCE-S615-CLI_76 sec 12.4.3.2 p. 699（connection name）；sec 12.4.4.1 p. 711（addr）；sec 12.4.4.5 p. 715（subnet）；sec 12.4.5.3 p. 719（loc-subnet） | **Verified + enforced 2026-04**。新增 `RequireCliToken` 共用檢查：禁 space/CR/LF/`"`/NUL。這些 IPsec 欄位原本直接內插，含空白的值會被裝置誤切欄位（如 `connection name foo bar` → 裝置把 `bar` 當成下一個參數），CR/LF 則會切斷 SSH 批次。|
 | Firewall `from`/`to` iftype 白名單 + 格式檢查 | PH_SCALANCE-S615-CLI_76 sec 12.3.4.1 pp. 598-599（available interfaces 表）；sec 12.3.4.31 p. 627 | **Verified + enforced 2026-04**。`ValidateFirewallInterface` 強制首個 token 必須是手冊列出的 `vlan/ppp/IPsec[all]/OpenVPN[all]/SinemaRC/Device`（大小寫依手冊 table）；第二個 token（若有）必須是 0-4094 的整數（對應手冊 ifstring 範圍）；最多兩個 token。`SourceCidr`/`DestinationCidr`/`Service` 補 CR/LF/`"` 檢查，防止 srcip 區段插入行級注入。|
 | DNS servers 最多 3 台 | PH_SCALANCE-S615-CLI_76 sec 9.7.3.1 p. 414（"A maximum of three DNS servers can be configured"） | **Verified + enforced 2026-04**。`BuildSetDns` 與 `BuildSetInterface` 兩個 DNS 入口都加上 `>3` 拒絕，避免部分 `manual srv` 被裝置接受、後面被拒絕造成半套狀態。|
+| `show ntp info` 輸出解析對應新 CLI 形式 | PH_SCALANCE-S615-CLI_76 sec 7.2.3.1 p. 217（`ntp server id <N> ipv4 <ip>` / `fqdn-name <fqdn>`） | **Fixed 2026-04**。原 `ParseNtp` 取 `token[2]`，遇到新形式會把 `"id"` 當作 host 回傳。改為優先抽取 `ipv4` / `fqdn-name` 關鍵詞後的一個 token；舊式 `ntp server <host>` 亦保留 fallback，避免對既有 fixture 回歸。|
 
 ## Re-verification procedure
 

@@ -727,20 +727,52 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
         return tunnels;
     }
 
-    private static NtpConfig ParseNtp(string output)
+    internal static NtpConfig ParseNtp(string output)
     {
         var config = new NtpConfig();
+        if (string.IsNullOrWhiteSpace(output)) return config;
+
         foreach (var line in output.Split('\n'))
         {
             var trimmed = line.Trim();
+            if (!trimmed.StartsWith("ntp ", StringComparison.OrdinalIgnoreCase)
+                && !trimmed.StartsWith("NTP ", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            // Extract host from either the modern
+            //   ntp server id <N> ipv4 <ip> [port …] [poll …]
+            //   ntp server id <N> fqdn-name <fqdn> …
+            // or the Cisco-style legacy form
+            //   ntp server <ip-or-fqdn>
+            // output shape produced by `show ntp info`. Real-device output
+            // samples are still unavailable, so this is best-effort: grab
+            // the token following `ipv4` / `fqdn-name` if present, else
+            // fall back to the first IP-looking token in the line.
             if (trimmed.StartsWith("ntp server ", StringComparison.OrdinalIgnoreCase))
             {
                 var parts = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length >= 3)
-                    config.Servers.Add(new NtpServer(parts[2]));
+                string? host = null;
+                for (int i = 0; i < parts.Length - 1; i++)
+                {
+                    if (parts[i].Equals("ipv4", StringComparison.OrdinalIgnoreCase)
+                        || parts[i].Equals("fqdn-name", StringComparison.OrdinalIgnoreCase))
+                    {
+                        host = parts[i + 1];
+                        break;
+                    }
+                }
+                if (host is null && parts.Length >= 3
+                    && !parts[2].Equals("id", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Legacy form: `ntp server <host>`.
+                    host = parts[2];
+                }
+                if (!string.IsNullOrWhiteSpace(host))
+                    config.Servers.Add(new NtpServer(host!));
             }
+
             if (trimmed.Contains("ntp enable", StringComparison.OrdinalIgnoreCase)
-                && !trimmed.StartsWith("no", StringComparison.OrdinalIgnoreCase))
+                && !trimmed.StartsWith("no ", StringComparison.OrdinalIgnoreCase))
                 config.Enabled = true;
         }
         return config;
