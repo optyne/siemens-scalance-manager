@@ -121,6 +121,9 @@ inferred items are limited to output parsing and edge cases.
 | IPsec `ike-auth` / `esp-auth` | PH_SCALANCE-S615-CLI_76 sec 12.4.7.9 p. 740 / sec 12.4.8.5 p. 749 | **Verified + enforced**。僅 `md5/sha1/sha256/sha384/sha512`。|
 | IPsec `ike-keyderivation dhgroup <N>` / `esp-keyderivation {none\|dhgroup <N>}` | PH_SCALANCE-S615-CLI_76 sec 12.4.7.11 p. 742 / sec 12.4.8.7 p. 751 | **Verified + fixed**。先前漏掉 `dhgroup` 關鍵字（直接送 `ike-keyderivation 14`）；已修正並驗證 DH 群組值 1/2/5/14-18。|
 | IPsec `ike-lifetime` / phase-2 `lifetime` **單位：分鐘** | PH_SCALANCE-S615-CLI_76 sec 12.4.7.12 p. 744 / sec 12.4.8.8 p. 752 | **Verified + fixed**。手冊明確標 `<min(...)>`；先前變數名 `LifetimeSeconds` 且預設值以秒為單位，會造成裝置拒絕或 lifetime 太長。已改 `LifetimeMinutes`，預設 480/60 分，範圍驗證 10-2500000 / 10-16666666。|
+| `addr <subnet\|dns>` / `conn-mode {roadwarrior\|standard}` / `subnet <subnet\|dns>` (remote-end) | PH_SCALANCE-S615-CLI_76 sec 12.4.4.1/3/5 p. 711-715 | **Re-verified 2026-04**。|
+| `loc-subnet` / `operation` / `rmend name` / `k-proto` (connection) | PH_SCALANCE-S615-CLI_76 sec 12.4.5.* p. 717-722 | **Re-verified 2026-04**。`operation` 合法值：`disabled\|start\|wait\|on-demand\|start-di\|wait-di\|start-sms\|wait-sms\|start-tcp\|wait-tcp\|start-action\|wait-action\|start-gps\|wait-gps`（p. 719）。|
+| 名稱長度限制：`connection name` 最多 122 字元、`remote-end name` 最多 128 字元 | PH_SCALANCE-S615-CLI_76 sec 12.4.3.2 p. 699 / 12.4.3.4 p. 705 | **Verified + enforced**。已在 `BuildSetVpnTunnel` 加 pre-flight check（因程式會自動產生 `<tunnel>-remote`，tunnel 名最多 121 字元才能確保派生名不超限）。|
 | IPsec `authentication` 子模式 → `auth psk <key>` / `auth cacert <ca> localcert <local>` | PH_SCALANCE-S615-CLI_76 sec 12.4.6.1/6.2 p. 727-728 | **Re-verified 2026-04**。|
 | `k-proto {ikev1\|ikev2}` | PH_SCALANCE-S615-CLI_76 sec 12.4.5.2 p. 718 | **Re-verified 2026-04**。|
 | `show firewall ip-rules {ipv4\|ipv6\|any}` / `show firewall pre-rules [{ipv4\|ipv6}]` | PH_SCALANCE-S615-CLI_76 sec 12.3.2.5/6/7 p. 593-594 | **Re-verified 2026-04**。|

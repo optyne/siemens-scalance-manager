@@ -228,6 +228,13 @@ public static class ScalanceCliCommands
         if (t is null) throw new ArgumentNullException(nameof(t));
         if (string.IsNullOrWhiteSpace(t.Name))
             throw new ArgumentException("Tunnel name required.", nameof(t));
+        // S615 CLI manual limits (sec 12.4.3.2 p. 699 / 12.4.3.4 p. 705):
+        //   connection name: max 122 chars
+        //   remote-end name: max 128 chars (we derive it as "<tunnel>-remote" = +7 chars)
+        if (t.Name.Length > 122)
+            throw new ArgumentException($"Tunnel name '{t.Name}' 超過 122 字元（S615 manual p. 699）。", nameof(t));
+        if (t.Name.Length + 7 > 128)
+            throw new ArgumentException($"Tunnel name too long — '{t.Name}-remote' 會超過 remote-end 128 字元限制。", nameof(t));
 
         var cmds = new List<string>
         {

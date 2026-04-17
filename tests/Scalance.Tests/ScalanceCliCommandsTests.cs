@@ -274,6 +274,20 @@ public class ScalanceCliCommandsTests
     }
 
     [Fact]
+    public void BuildSetVpnTunnel_rejects_name_over_122_chars()
+    {
+        // Manual sec 12.4.3.2 p. 699: connection name max 122 chars.
+        var t = new VpnTunnel
+        {
+            Name = new string('a', 123),
+            Enabled = true, RemoteEndpoint = "1.2.3.4",
+            AuthMode = VpnAuthMode.Psk, PreSharedKey = "k"
+        };
+        var act = () => ScalanceCliCommands.BuildSetVpnTunnel(t);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
     public void BuildSetVpnTunnel_rejects_lifetime_below_10_min()
     {
         // Manual p. 744: ike-lifetime range 10..2500000 minutes.
