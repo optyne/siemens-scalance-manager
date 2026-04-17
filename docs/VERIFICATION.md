@@ -143,6 +143,7 @@ inferred items are limited to output parsing and edge cases.
 | IPv4 位址/遮罩/閘道/DNS 嚴格四段驗證 | PH_SCALANCE-S615-CLI_76 sec 9.1.2.5 p. 331（ip route）、sec 9.1.3.2 p. 338（ip address）、sec 9.7.3.1 p. 414（manual srv） | **Verified + enforced 2026-04**。`RequireIpv4` 強制 `a.b.c.d` 四段；`System.Net.IPAddress.TryParse` 會把 `1.2.3` 誤判為 `1.2.0.3`（legacy BSD form），裝置不接受。`BuildSetInterface` 與 `BuildSetDns` 所有 IP 欄位（含 DNS 伺服器、閘道、靜態 IP/遮罩）皆經此檢查；`InterfaceName` 與 `DomainName` 同步加上 SSH 安全字元檢查。|
 | NTP server 行格式化 + FQDN 100 字元上限 | PH_SCALANCE-S615-CLI_76 sec 7.2.3.1 p. 217 | **Verified + enforced 2026-04**。抽出 `FormatNtpServerLine(id, host)` 共用 builder；id 1-3 驗證；IPv4 採嚴格四段；FQDN 超過 100 字元或含 space/CR/LF/`"`/NUL 立即丟例外。`SetNtpAsync` 改呼叫此 builder，失敗直接回 `OperationResult.Fail`。|
 | IPsec tunnel name / RemoteEndpoint / LocalSubnet / RemoteSubnet 單一 CLI token 檢查 | PH_SCALANCE-S615-CLI_76 sec 12.4.3.2 p. 699（connection name）；sec 12.4.4.1 p. 711（addr）；sec 12.4.4.5 p. 715（subnet）；sec 12.4.5.3 p. 719（loc-subnet） | **Verified + enforced 2026-04**。新增 `RequireCliToken` 共用檢查：禁 space/CR/LF/`"`/NUL。這些 IPsec 欄位原本直接內插，含空白的值會被裝置誤切欄位（如 `connection name foo bar` → 裝置把 `bar` 當成下一個參數），CR/LF 則會切斷 SSH 批次。|
+| Firewall `from`/`to` iftype 白名單 + 格式檢查 | PH_SCALANCE-S615-CLI_76 sec 12.3.4.1 pp. 598-599（available interfaces 表） | **Verified + enforced 2026-04**。`ValidateFirewallInterface` 強制首個 token 必須是手冊列出的 `vlan/ppp/IPsec[all]/OpenVPN[all]/SinemaRC/Device`（大小寫依手冊 table）；第二個 token（若有）必須是非負整數；最多兩個 token。`SourceCidr`/`DestinationCidr`/`Service` 補 CR/LF/`"` 檢查，防止 srcip 區段插入行級注入。|
 
 ## Re-verification procedure
 

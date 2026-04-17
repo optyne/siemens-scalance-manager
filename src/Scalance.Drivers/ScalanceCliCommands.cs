@@ -461,10 +461,8 @@ public static class ScalanceCliCommands
         // Manual p. 627: `from` / `to` must name a valid iftype keyword
         // (e.g. "vlan 1", "Device", "IPsec 3"). Empty values produce
         // `ipv4rule from  to  srcip …` which the device rejects outright.
-        if (string.IsNullOrWhiteSpace(rule.From))
-            throw new ArgumentException("FirewallRule.From 必須指定介面（如 'vlan 1'）— manual p. 627。", nameof(rule));
-        if (string.IsNullOrWhiteSpace(rule.To))
-            throw new ArgumentException("FirewallRule.To 必須指定介面（如 'vlan 2'）— manual p. 627。", nameof(rule));
+        ValidateFirewallInterface(rule.From, "From");
+        ValidateFirewallInterface(rule.To, "To");
 
         var actionStr = rule.Action switch
         {
@@ -476,12 +474,19 @@ public static class ScalanceCliCommands
 
         var src = string.IsNullOrWhiteSpace(rule.SourceCidr) ? "0.0.0.0/0" : rule.SourceCidr;
         var dst = string.IsNullOrWhiteSpace(rule.DestinationCidr) ? "0.0.0.0/0" : rule.DestinationCidr;
+        // srcip/dstip may hold CIDR, single IP, or a range "A - B". Reject CR/LF/
+        // quote so a crafted value cannot break the batched SSH command stream.
+        RejectLineControlChars(src, "SourceCidr");
+        RejectLineControlChars(dst, "DestinationCidr");
 
         var svc = string.IsNullOrWhiteSpace(rule.Service) ||
                   rule.Service.Equals("All", StringComparison.OrdinalIgnoreCase)
             ? "all" : rule.Service;
         if (svc.Length > 32)
             throw new ArgumentException($"service name '{svc}' 超過 32 字元（manual p. 628）。", nameof(rule));
+        // Service name sits on the same CLI line as srcip/dstip; a space/CR/LF
+        // would shift subsequent positional args or break the stream.
+        RequireCliToken(svc, "Service");
 
         var cmd = $"ipv4rule from {rule.From} to {rule.To} srcip {src} dstip {dst} action {actionStr} service {svc}";
 
@@ -589,6 +594,51 @@ public static class ScalanceCliCommands
     // would reject them. `cloudconnector` (p. 648) and `vxlan` (p. 664) were
     // missing. `all` and `show-int` are management keywords, not service
     // keywords, so they are intentionally not exposed here.
+    // S615 CLI manual p. 598-599 enumerates the only iftype keywords accepted
+    // by `ipv4rule from` / `to`. VLAN and PPP come with an integer ifstring;
+    // IPsec/OpenVPN accept either a numeric suffix or the `-all` form; Device
+    // and SinemaRC stand alone. Matching here up front means a typo like
+    // "wan1" fails in the builder rather than causing a cryptic device reject.
+    private static readonly HashSet<string> FirewallIfTypeFirstToken = new(StringComparer.Ordinal)
+    {
+        "vlan", "ppp",
+        "IPsec", "IPsecall",
+        "OpenVPN", "OpenVPNall",
+        "SinemaRC", "Device",
+    };
+
+    private static void ValidateFirewallInterface(string value, string paramName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            throw new ArgumentException(
+                $"FirewallRule.{paramName} 必須指定介面（如 'vlan 1'）— manual p. 627。",
+                paramName);
+        RejectLineControlChars(value, paramName);
+        var parts = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0 || !FirewallIfTypeFirstToken.Contains(parts[0]))
+            throw new ArgumentException(
+                $"FirewallRule.{paramName} '{value}' 首個 token 非手冊列出的 iftype（p. 598-599：vlan/ppp/IPsec[all]/OpenVPN[all]/SinemaRC/Device）。",
+                paramName);
+        // Second token — when present — must be a non-negative decimal (ifnum).
+        if (parts.Length > 2)
+            throw new ArgumentException(
+                $"FirewallRule.{paramName} '{value}' 有多餘的 token — 格式為 '<iftype> [<ifstring>]'。",
+                paramName);
+        if (parts.Length == 2 && !int.TryParse(parts[1], out var n) || (parts.Length == 2 && int.TryParse(parts[1], out n) && n < 0))
+            throw new ArgumentException(
+                $"FirewallRule.{paramName} '{value}' 的 ifstring 必須是非負整數。",
+                paramName);
+    }
+
+    private static void RejectLineControlChars(string value, string paramName)
+    {
+        if (value is null) return;
+        foreach (var c in value)
+            if (c == '\r' || c == '\n' || c == '\0' || c == '"')
+                throw new ArgumentException(
+                    $"{paramName} 含非法控制字元（CR/LF/NUL/\"）。", paramName);
+    }
+
     private static readonly HashSet<string> PredefinedRuleNames = new(StringComparer.Ordinal)
     {
         "cloudconnector","dhcp","dns","http","https","ipsec","ping",

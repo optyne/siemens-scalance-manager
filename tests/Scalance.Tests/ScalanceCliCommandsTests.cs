@@ -501,6 +501,56 @@ public class ScalanceCliCommandsTests
         cmds.Should().Contain(c => c.StartsWith("ipv4rule from vlan 1 to vlan 2 "));
     }
 
+    [Theory]
+    [InlineData("wan 1")]          // invalid iftype
+    [InlineData("vlan abc")]       // non-numeric ifstring
+    [InlineData("vlan 1 extra")]   // too many tokens
+    [InlineData("VLAN 1")]         // case-sensitive: manual uses lowercase 'vlan'
+    public void BuildCreateFirewallRule_rejects_invalid_iftype_shape(string fromValue)
+    {
+        var rule = new FirewallRule { From = fromValue, To = "Device", Action = FirewallAction.Accept };
+        var act = () => ScalanceCliCommands.BuildCreateFirewallRule(rule);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Theory]
+    [InlineData("vlan 1")]
+    [InlineData("Device")]
+    [InlineData("IPsec 3")]
+    [InlineData("IPsecall")]
+    [InlineData("OpenVPNall")]
+    public void BuildCreateFirewallRule_accepts_manual_listed_iftypes(string fromValue)
+    {
+        var rule = new FirewallRule { From = fromValue, To = "Device", Action = FirewallAction.Accept };
+        var cmds = ScalanceCliCommands.BuildCreateFirewallRule(rule);
+        cmds.Should().Contain(c => c.StartsWith($"ipv4rule from {fromValue} to Device "));
+    }
+
+    [Fact]
+    public void BuildCreateFirewallRule_rejects_service_with_space()
+    {
+        var rule = new FirewallRule
+        {
+            From = "vlan 1", To = "Device",
+            Action = FirewallAction.Accept, Service = "has space",
+        };
+        var act = () => ScalanceCliCommands.BuildCreateFirewallRule(rule);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void BuildCreateFirewallRule_rejects_srcip_with_newline()
+    {
+        var rule = new FirewallRule
+        {
+            From = "vlan 1", To = "Device",
+            SourceCidr = "10.0.0.0/24\ninject",
+            Action = FirewallAction.Accept,
+        };
+        var act = () => ScalanceCliCommands.BuildCreateFirewallRule(rule);
+        act.Should().Throw<ArgumentException>();
+    }
+
     [Fact]
     public void BuildCreateFirewallRule_rejects_blank_from_or_to()
     {
