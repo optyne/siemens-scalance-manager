@@ -89,14 +89,15 @@ public sealed partial class VpnEditorViewModel : ObservableObject
             LocalSubnet = "192.168.1.0/24",
             RemoteSubnet = "192.168.2.0/24",
             AuthMode = VpnAuthMode.Psk,
-            IkeEncryption = "aes256",
+            // Values validated against S615 CLI manual pp. 741/749; lifetimes in MINUTES (pp. 744/752).
+            IkeEncryption = "aes256cbc",
             IkeHash = "sha256",
             DhGroup = "14",
-            IkeLifetime = 28800,
-            EspEncryption = "aes256",
+            IkeLifetime = 480,   // 8 hours in minutes
+            EspEncryption = "aes256cbc",
             EspHash = "sha256",
             PfsGroup = "14",
-            EspLifetime = 3600,
+            EspLifetime = 60,    // 1 hour in minutes
         };
         Tunnels.Add(t);
         SelectedTunnel = t;
@@ -178,11 +179,11 @@ public sealed partial class VpnTunnelRow : ObservableObject
         IkeEncryption = t.Ike.Encryption,
         IkeHash = t.Ike.Hash,
         DhGroup = t.Ike.DhGroup,
-        IkeLifetime = t.Ike.LifetimeSeconds,
+        IkeLifetime = t.Ike.LifetimeMinutes,
         EspEncryption = t.Esp.Encryption,
         EspHash = t.Esp.Hash,
         PfsGroup = t.Esp.PfsGroup,
-        EspLifetime = t.Esp.LifetimeSeconds,
+        EspLifetime = t.Esp.LifetimeMinutes,
     };
 
     public VpnTunnel ToModel() => new()
@@ -200,14 +201,14 @@ public sealed partial class VpnTunnelRow : ObservableObject
             Encryption = IkeEncryption,
             Hash = IkeHash,
             DhGroup = DhGroup,
-            LifetimeSeconds = IkeLifetime,
+            LifetimeMinutes = IkeLifetime,
         },
         Esp = new EspSettings
         {
             Encryption = EspEncryption,
             Hash = EspHash,
             PfsGroup = PfsGroup,
-            LifetimeSeconds = EspLifetime,
+            LifetimeMinutes = EspLifetime,
         },
     };
 }

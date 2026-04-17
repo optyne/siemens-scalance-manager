@@ -186,17 +186,17 @@ public class ScalanceCliCommandsTests
             PreSharedKey = "k",
             Ike = new IkeSettings
             {
-                Encryption = "aes256",
+                Encryption = "aes256cbc",
                 Hash = "sha256",
                 DhGroup = "14",
-                LifetimeSeconds = 28800,
+                LifetimeMinutes = 480,
             },
             Esp = new EspSettings
             {
-                Encryption = "aes256",
+                Encryption = "aes256cbc",
                 Hash = "sha256",
                 PfsGroup = "14",
-                LifetimeSeconds = 3600,
+                LifetimeMinutes = 60,
             },
         };
 
@@ -207,22 +207,26 @@ public class ScalanceCliCommandsTests
         // "no default-ciphers" must appear so user-supplied values take effect (p. 735-736)
         cmds.Where(c => c == "no default-ciphers").Should().HaveCount(2,
             "both phase 1 and phase 2 must clear default ciphers before custom values are set");
-        cmds.Should().Contain("ike-encryption aes256");
+        cmds.Should().Contain("ike-encryption aes256cbc");
         cmds.Should().Contain("ike-auth sha256");
-        cmds.Should().Contain("ike-keyderivation 14");
-        cmds.Should().Contain("ike-lifetime 28800");
+        // Verified p. 742: `ike-keyderivation dhgroup <N>`, NOT plain `ike-keyderivation <N>`.
+        cmds.Should().Contain("ike-keyderivation dhgroup 14");
+        // Lifetime unit is MINUTES per manual p. 744 — not seconds.
+        cmds.Should().Contain("ike-lifetime 480");
 
         // Phase 2 sub-commands inside cli(config-ipsec-conn-phase2)# (pp. 745-754)
         cmds.Should().Contain("phase 2");
-        cmds.Should().Contain("esp-encryption aes256");
+        cmds.Should().Contain("esp-encryption aes256cbc");
         cmds.Should().Contain("esp-auth sha256");
-        cmds.Should().Contain("esp-keyderivation 14");
-        cmds.Should().Contain("lifetime 3600");
+        cmds.Should().Contain("esp-keyderivation dhgroup 14");
+        cmds.Should().Contain("lifetime 60");
     }
 
     [Fact]
-    public void BuildSetVpnTunnel_skips_pfs_when_set_to_none()
+    public void BuildSetVpnTunnel_emits_esp_keyderivation_none_for_no_pfs()
     {
+        // Manual p. 751: esp-keyderivation {none | dhgroup <N>}.
+        // `none` must be sent explicitly to disable PFS — not omitted.
         var t = new VpnTunnel
         {
             Name = "nopfs",
@@ -233,7 +237,54 @@ public class ScalanceCliCommandsTests
             Esp = new EspSettings { PfsGroup = "none" },
         };
         var cmds = ScalanceCliCommands.BuildSetVpnTunnel(t);
-        cmds.Should().NotContain(c => c.StartsWith("esp-keyderivation"));
+        cmds.Should().Contain("esp-keyderivation none");
+        cmds.Should().NotContain(c => c.StartsWith("esp-keyderivation dhgroup"));
+    }
+
+    [Theory]
+    [InlineData("aes256")]          // missing cipher-mode suffix
+    [InlineData("des")]             // unsupported
+    [InlineData("rc4")]             // never supported
+    public void BuildSetVpnTunnel_rejects_invalid_encryption(string enc)
+    {
+        var t = new VpnTunnel
+        {
+            Name = "x", Enabled = true, RemoteEndpoint = "1.2.3.4",
+            AuthMode = VpnAuthMode.Psk, PreSharedKey = "k",
+            Ike = new IkeSettings { Encryption = enc }
+        };
+        var act = () => ScalanceCliCommands.BuildSetVpnTunnel(t);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Theory]
+    [InlineData("3")]               // not in {1,2,5,14,15,16,17,18}
+    [InlineData("19")]
+    [InlineData("abc")]
+    public void BuildSetVpnTunnel_rejects_invalid_dh_group(string dh)
+    {
+        var t = new VpnTunnel
+        {
+            Name = "x", Enabled = true, RemoteEndpoint = "1.2.3.4",
+            AuthMode = VpnAuthMode.Psk, PreSharedKey = "k",
+            Ike = new IkeSettings { DhGroup = dh }
+        };
+        var act = () => ScalanceCliCommands.BuildSetVpnTunnel(t);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void BuildSetVpnTunnel_rejects_lifetime_below_10_min()
+    {
+        // Manual p. 744: ike-lifetime range 10..2500000 minutes.
+        var t = new VpnTunnel
+        {
+            Name = "x", Enabled = true, RemoteEndpoint = "1.2.3.4",
+            AuthMode = VpnAuthMode.Psk, PreSharedKey = "k",
+            Ike = new IkeSettings { LifetimeMinutes = 5 }
+        };
+        var act = () => ScalanceCliCommands.BuildSetVpnTunnel(t);
+        act.Should().Throw<ArgumentOutOfRangeException>();
     }
 
     [Fact]

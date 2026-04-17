@@ -102,10 +102,10 @@ public class CliCommandCoverageTests
             RemoteSubnet = "192.168.2.0/24",
             AuthMode = VpnAuthMode.Psk,
             PreSharedKey = "k",
-            Ike = new IkeSettings { Encryption = "aes256", Hash = "sha256",
-                                    DhGroup = "14", LifetimeSeconds = 28800 },
-            Esp = new EspSettings { Encryption = "aes256", Hash = "sha256",
-                                    PfsGroup = "14", LifetimeSeconds = 3600 },
+            Ike = new IkeSettings { Encryption = "aes256cbc", Hash = "sha256",
+                                    DhGroup = "14", LifetimeMinutes = 480 },
+            Esp = new EspSettings { Encryption = "aes256cbc", Hash = "sha256",
+                                    PfsGroup = "14", LifetimeMinutes = 60 },
         };
         foreach (var c in ScalanceCliCommands.BuildSetVpnTunnel(vpnPsk)) yield return c;
 

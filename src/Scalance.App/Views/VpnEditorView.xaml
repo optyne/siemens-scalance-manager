@@ -107,7 +107,7 @@
                                    ItemsSource="{Binding DataContext.DhGroupChoices, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                    Text="{Binding DhGroup, UpdateSourceTrigger=LostFocus}"
                                    IsEditable="True" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="存活時間（秒）："/>
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="存活時間（分鐘）："/>
                         <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding IkeLifetime, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
                     </Grid>
 
@@ -136,7 +136,7 @@
                                    ItemsSource="{Binding DataContext.DhGroupChoices, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                    Text="{Binding PfsGroup, UpdateSourceTrigger=LostFocus}"
                                    IsEditable="True" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="存活時間（秒）："/>
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="存活時間（分鐘）："/>
                         <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding EspLifetime, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
                     </Grid>
                 </StackPanel>

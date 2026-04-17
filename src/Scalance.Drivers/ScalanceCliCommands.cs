@@ -282,43 +282,48 @@ public static class ScalanceCliCommands
         }
         cmds.Add("exit"); // back to cli(config-conn-X)#
 
-        // Phase 1 configuration (p. 721, sub-commands pp. 734-744)
-        // Sub-commands inside cli(config-ipsec-conn-phase1)# use the ike-* prefix:
-        //   ike-encryption    <enc>        (p. 741)
-        //   ike-auth          <hash>       (p. 740)
-        //   ike-keyderivation <dh-group>   (p. 742) — DH lives here, not "dh-group"
-        //   ike-lifetime      <seconds>    (p. 744)
+        // Phase 1 configuration (S615 CLI manual sec 12.4.7 pp. 734-744).
+        // Verified parameter values:
+        //   ike-encryption    {3des|aes128cbc|aes192cbc|aes256cbc|aes128ctr|aes192ctr|
+        //                      aes256ctr|aes128ccm16|aes192ccm16|aes256ccm16|
+        //                      aes128gcm16|aes192gcm16|aes256gcm16}          (p. 741)
+        //   ike-auth          {md5|sha1|sha256|sha384|sha512}                 (p. 740)
+        //   ike-keyderivation {dhgroup <1|2|5|14|15|16|17|18>}                (p. 742)
+        //   ike-lifetime      <min(10-2500000)>   ← MINUTES, not seconds      (p. 744)
         // Custom values only take effect after "no default-ciphers" (p. 735-736).
         cmds.Add("phase 1");
         cmds.Add("no default-ciphers");
         if (!string.IsNullOrWhiteSpace(t.Ike.Encryption))
-            cmds.Add($"ike-encryption {t.Ike.Encryption}");
+            cmds.Add($"ike-encryption {ValidateIkeEncryption(t.Ike.Encryption)}");
         if (!string.IsNullOrWhiteSpace(t.Ike.Hash))
-            cmds.Add($"ike-auth {t.Ike.Hash}");
+            cmds.Add($"ike-auth {ValidateIkeEspHash(t.Ike.Hash)}");
         if (!string.IsNullOrWhiteSpace(t.Ike.DhGroup))
-            cmds.Add($"ike-keyderivation {t.Ike.DhGroup}");
-        if (t.Ike.LifetimeSeconds > 0)
-            cmds.Add($"ike-lifetime {t.Ike.LifetimeSeconds}");
+            cmds.Add($"ike-keyderivation dhgroup {ValidateDhGroup(t.Ike.DhGroup)}");
+        if (t.Ike.LifetimeMinutes > 0)
+            cmds.Add($"ike-lifetime {ClampRange(t.Ike.LifetimeMinutes, 10, 2500000, "ike-lifetime")}");
         cmds.Add("exit"); // back to cli(config-conn-X)#
 
-        // Phase 2 configuration (p. 721, sub-commands pp. 745-754)
-        // Sub-commands inside cli(config-ipsec-conn-phase2)# use the esp-* prefix:
-        //   esp-encryption    <enc>        (p. 749)
-        //   esp-auth          <hash>       (p. 749)
-        //   esp-keyderivation <pfs-group>  (p. 751) — PFS lives here, not "pfs-group"
-        //   lifetime          <seconds>    (p. 752)
+        // Phase 2 configuration (S615 CLI manual sec 12.4.8 pp. 745-754).
+        // Verified parameter values (same cipher/hash sets as phase 1):
+        //   esp-encryption    {same list as ike-encryption}     (p. 749)
+        //   esp-auth          {md5|sha1|sha256|sha384|sha512}   (p. 749)
+        //   esp-keyderivation {none|dhgroup <1|2|5|14|15|16|17|18>} (p. 751)
+        //   lifetime          <min(10-16666666)>  ← MINUTES      (p. 752)
         cmds.Add("phase 2");
         cmds.Add("no default-ciphers");
         if (!string.IsNullOrWhiteSpace(t.Esp.Encryption))
-            cmds.Add($"esp-encryption {t.Esp.Encryption}");
+            cmds.Add($"esp-encryption {ValidateIkeEncryption(t.Esp.Encryption)}");
         if (!string.IsNullOrWhiteSpace(t.Esp.Hash))
-            cmds.Add($"esp-auth {t.Esp.Hash}");
-        // PfsGroup may be null or "none" — both mean "skip PFS"
-        if (!string.IsNullOrWhiteSpace(t.Esp.PfsGroup) &&
-            !t.Esp.PfsGroup.Equals("none", StringComparison.OrdinalIgnoreCase))
-            cmds.Add($"esp-keyderivation {t.Esp.PfsGroup}");
-        if (t.Esp.LifetimeSeconds > 0)
-            cmds.Add($"lifetime {t.Esp.LifetimeSeconds}");
+            cmds.Add($"esp-auth {ValidateIkeEspHash(t.Esp.Hash)}");
+        if (!string.IsNullOrWhiteSpace(t.Esp.PfsGroup))
+        {
+            if (t.Esp.PfsGroup.Equals("none", StringComparison.OrdinalIgnoreCase))
+                cmds.Add("esp-keyderivation none");
+            else
+                cmds.Add($"esp-keyderivation dhgroup {ValidateDhGroup(t.Esp.PfsGroup)}");
+        }
+        if (t.Esp.LifetimeMinutes > 0)
+            cmds.Add($"lifetime {ClampRange(t.Esp.LifetimeMinutes, 10, 16666666, "esp lifetime")}");
         cmds.Add("exit"); // back to cli(config-conn-X)#
 
         cmds.Add("exit"); // back to cli(config-ipsec)#
@@ -618,6 +623,56 @@ public static class ScalanceCliCommands
         int prefix = 0;
         for (int i = 31; i >= 0 && ((bits >> i) & 1) == 1; i--) prefix++;
         return prefix;
+    }
+
+    private static readonly HashSet<string> IkeEspEncryptionValues = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "3des",
+        "aes128cbc","aes192cbc","aes256cbc",
+        "aes128ctr","aes192ctr","aes256ctr",
+        "aes128ccm16","aes192ccm16","aes256ccm16",
+        "aes128gcm16","aes192gcm16","aes256gcm16"
+    };
+
+    private static readonly HashSet<string> IkeEspHashValues = new(StringComparer.OrdinalIgnoreCase)
+    { "md5","sha1","sha256","sha384","sha512" };
+
+    private static readonly HashSet<string> DhGroupValues = new(StringComparer.Ordinal)
+    { "1","2","5","14","15","16","17","18" };
+
+    internal static string ValidateIkeEncryption(string v)
+    {
+        var key = v.Trim().ToLowerInvariant();
+        if (!IkeEspEncryptionValues.Contains(key))
+            throw new ArgumentException(
+                $"encryption '{v}' 不合法 — S615 CLI manual p. 741/749 僅接受 {string.Join("/", IkeEspEncryptionValues)}。");
+        return key;
+    }
+
+    internal static string ValidateIkeEspHash(string v)
+    {
+        var key = v.Trim().ToLowerInvariant();
+        if (!IkeEspHashValues.Contains(key))
+            throw new ArgumentException(
+                $"hash '{v}' 不合法 — S615 CLI manual p. 740/749 僅接受 md5/sha1/sha256/sha384/sha512。");
+        return key;
+    }
+
+    internal static string ValidateDhGroup(string v)
+    {
+        var key = v.Trim();
+        if (!DhGroupValues.Contains(key))
+            throw new ArgumentException(
+                $"DH group '{v}' 不合法 — S615 CLI manual p. 742/751 僅接受 1/2/5/14/15/16/17/18。");
+        return key;
+    }
+
+    internal static int ClampRange(int value, int min, int max, string name)
+    {
+        if (value < min || value > max)
+            throw new ArgumentOutOfRangeException(name,
+                $"{name} {value} 超出 S615 可接受範圍 {min}-{max}（minutes）。");
+        return value;
     }
 
     /// <summary>Accept "10.0.0.0/24" or "10.0.0.0 255.255.255.0" and return ACL-style "net mask".</summary>

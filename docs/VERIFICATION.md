@@ -117,6 +117,10 @@ inferred items are limited to output parsing and edge cases.
 | `ntp server id <1-3> { ipv4 <ip> \| fqdn-name <FQDN> \| ipv6 <ipv6> }` | PH_SCALANCE-S615-CLI_76 sec 7.2.3.1 p. 217 | **Verified by manual**。最多 3 台；`poll` 範圍 64-2592000 秒。|
 | `ntp time diff +HH:MM`（非 `clock timezone`） | PH_SCALANCE-S615-CLI_76 sec 7.2.3.6 p. 221 | **Verified by manual**。於 NTP config 模式內使用；必須帶正負號、兩位數。先前用 `clock timezone` 是 Cisco 語法誤植，已修正並加入 `IsValidNtpTimeDiff` 格式驗證。|
 | IPsec `ipsec` → `connection name <name>` → `phase <1\|2>` 模式層 | PH_SCALANCE-S615-CLI_76 sec 12.4.2.1 p. 697 / 12.4.3.2 p. 699 / 12.4.5.5 p. 721 | **Re-verified 2026-04**。`BuildSetVpnTunnel` 已符合手冊。|
+| IPsec `ike-encryption` / `esp-encryption` 合法值 | PH_SCALANCE-S615-CLI_76 sec 12.4.7.10 p. 741 / sec 12.4.8.6 p. 749 | **Verified + enforced**。僅接受 `3des / aes{128,192,256}{cbc,ctr,ccm16,gcm16}`；先前預設 `aes256` 不合法，已改 `aes256cbc` 並加入 `ValidateIkeEncryption`。|
+| IPsec `ike-auth` / `esp-auth` | PH_SCALANCE-S615-CLI_76 sec 12.4.7.9 p. 740 / sec 12.4.8.5 p. 749 | **Verified + enforced**。僅 `md5/sha1/sha256/sha384/sha512`。|
+| IPsec `ike-keyderivation dhgroup <N>` / `esp-keyderivation {none\|dhgroup <N>}` | PH_SCALANCE-S615-CLI_76 sec 12.4.7.11 p. 742 / sec 12.4.8.7 p. 751 | **Verified + fixed**。先前漏掉 `dhgroup` 關鍵字（直接送 `ike-keyderivation 14`）；已修正並驗證 DH 群組值 1/2/5/14-18。|
+| IPsec `ike-lifetime` / phase-2 `lifetime` **單位：分鐘** | PH_SCALANCE-S615-CLI_76 sec 12.4.7.12 p. 744 / sec 12.4.8.8 p. 752 | **Verified + fixed**。手冊明確標 `<min(...)>`；先前變數名 `LifetimeSeconds` 且預設值以秒為單位，會造成裝置拒絕或 lifetime 太長。已改 `LifetimeMinutes`，預設 480/60 分，範圍驗證 10-2500000 / 10-16666666。|
 | IPsec `authentication` 子模式 → `auth psk <key>` / `auth cacert <ca> localcert <local>` | PH_SCALANCE-S615-CLI_76 sec 12.4.6.1/6.2 p. 727-728 | **Re-verified 2026-04**。|
 | `k-proto {ikev1\|ikev2}` | PH_SCALANCE-S615-CLI_76 sec 12.4.5.2 p. 718 | **Re-verified 2026-04**。|
 | `show firewall ip-rules {ipv4\|ipv6\|any}` / `show firewall pre-rules [{ipv4\|ipv6}]` | PH_SCALANCE-S615-CLI_76 sec 12.3.2.5/6/7 p. 593-594 | **Re-verified 2026-04**。|
