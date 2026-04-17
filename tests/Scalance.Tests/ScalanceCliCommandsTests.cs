@@ -413,6 +413,50 @@ public class ScalanceCliCommandsTests
         cmds.Should().Contain(c => c.StartsWith($"prerule {svcName} ipv4 int vlan"));
     }
 
+    [Theory]
+    [InlineData(1, "192.168.1.1",  "ntp server id 1 ipv4 192.168.1.1")]
+    [InlineData(2, "pool.ntp.org", "ntp server id 2 fqdn-name pool.ntp.org")]
+    public void FormatNtpServerLine_branches_ipv4_and_fqdn(int id, string host, string expected)
+    {
+        ScalanceCliCommands.FormatNtpServerLine(id, host).Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(4)]
+    public void FormatNtpServerLine_rejects_out_of_range_id(int id)
+    {
+        var act = () => ScalanceCliCommands.FormatNtpServerLine(id, "1.2.3.4");
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void FormatNtpServerLine_rejects_fqdn_over_100_chars()
+    {
+        var host = new string('a', 101);
+        var act = () => ScalanceCliCommands.FormatNtpServerLine(1, host);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Theory]
+    [InlineData("has space")]
+    [InlineData("has\nnewline")]
+    public void FormatNtpServerLine_rejects_ssh_unsafe_fqdn(string host)
+    {
+        var act = () => ScalanceCliCommands.FormatNtpServerLine(1, host);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void FormatNtpServerLine_rejects_bsd_short_ipv4_as_fqdn()
+    {
+        // "1.2.3" used to parse as 1.2.0.3 via IPAddress.TryParse and be sent
+        // verbatim on the ipv4 branch. Now the strict dotted-quad check pushes
+        // it to the FQDN branch — which is itself the correct behaviour.
+        ScalanceCliCommands.FormatNtpServerLine(1, "1.2.3")
+            .Should().Be("ntp server id 1 fqdn-name 1.2.3");
+    }
+
     [Fact]
     public void BuildSetSystemName_emits_system_name_not_hostname()
     {

@@ -219,7 +219,12 @@ public static class ScalanceCliCommands
         return cmds;
     }
 
-    private static void RequireIpv4(string value, string paramName)
+    /// <summary>
+    /// Strict dotted-quad IPv4 check. Rejects the BSD short forms that
+    /// <see cref="System.Net.IPAddress.TryParse"/> otherwise accepts
+    /// (e.g. "1.2.3" → 1.2.0.3), which the SCALANCE CLI does not match.
+    /// </summary>
+    internal static void RequireIpv4(string value, string paramName)
     {
         // Require strict dotted-quad: System.Net.IPAddress.TryParse on .NET
         // will happily accept "1.2.3" as 1.2.0.3 (legacy BSD form), which the
@@ -917,6 +922,45 @@ public static class ScalanceCliCommands
             if (c == '§' || c == '?' || c == ';' || c == ':' || c == 'ß' || c == '\\' || c == ' ' || c == '\x7f')
                 throw new ArgumentException($"password contains disallowed character '{c}' (S615 manual p. 576).", nameof(pwd));
         }
+    }
+
+    // ---------- NTP server line ----------
+
+    /// <summary>
+    /// Build a single `ntp server id &lt;1-3&gt; { ipv4 &lt;ip&gt; | fqdn-name &lt;fqdn&gt; }`
+    /// command line. Verified against PH_SCALANCE-S615-CLI_76 sec 7.2.3.1 p. 217:
+    ///   - id must be 1..3 (device limit).
+    ///   - ipv4 value must be a valid dotted-quad; short BSD forms are rejected.
+    ///   - fqdn max 100 characters; CR/LF/space/quote rejected for SSH safety.
+    /// The caller is responsible for wrapping with `configure terminal` / `ntp`
+    /// / `end` / `write memory`.
+    /// </summary>
+    public static string FormatNtpServerLine(int id, string host)
+    {
+        if (id < 1 || id > 3)
+            throw new ArgumentOutOfRangeException(nameof(id),
+                $"ntp server id {id} 超出 1-3 範圍（S615 manual p. 217）。");
+        if (string.IsNullOrWhiteSpace(host))
+            throw new ArgumentException("ntp server host required", nameof(host));
+
+        // Distinguish IPv4 vs FQDN. IPv4 path uses the strict dotted-quad form.
+        var parts = host.Split('.');
+        if (parts.Length == 4
+            && System.Net.IPAddress.TryParse(host, out var ip)
+            && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+        {
+            return $"ntp server id {id} ipv4 {host}";
+        }
+
+        // Fall through to FQDN validation.
+        if (host.Length > 100)
+            throw new ArgumentException(
+                $"FQDN 長度 {host.Length} 超過 100 字元（S615 manual p. 217）。", nameof(host));
+        foreach (var c in host)
+            if (c == '\r' || c == '\n' || c == '"' || c == ' ' || c == '\0')
+                throw new ArgumentException(
+                    "FQDN 含非法字元（CR/LF/NUL/space/\"）。", nameof(host));
+        return $"ntp server id {id} fqdn-name {host}";
     }
 
     // ---------- System name (hostname) ----------

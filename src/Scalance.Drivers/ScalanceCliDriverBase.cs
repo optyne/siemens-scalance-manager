@@ -119,18 +119,22 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
             // Enter NTP configuration mode (p. 216)
             cmds.Add("ntp");
 
-            // Configure up to 3 NTP servers (p. 217-218):
-            // ntp server id <1-3> { ipv4 <ip_addr> | fqdn-name <FQDN> } [poll <seconds(64-2592000)>]
+            // Configure up to 3 NTP servers (p. 217-218). Host validation
+            // (strict IPv4 dotted-quad or FQDN ≤100 chars, SSH-safe) lives in
+            // ScalanceCliCommands.FormatNtpServerLine so syntax rules stay in
+            // one place.
             int serverId = 1;
             foreach (var s in config.Servers)
             {
                 if (serverId > 3) break; // S615 supports max 3 NTP servers
-                var host = s.Host;
-                // Determine if host is an IP address or FQDN
-                if (System.Net.IPAddress.TryParse(host, out _))
-                    cmds.Add($"ntp server id {serverId} ipv4 {host}");
-                else
-                    cmds.Add($"ntp server id {serverId} fqdn-name {host}");
+                try
+                {
+                    cmds.Add(ScalanceCliCommands.FormatNtpServerLine(serverId, s.Host));
+                }
+                catch (ArgumentException ex)
+                {
+                    return OperationResult.Fail($"NTP server #{serverId}: {ex.Message}");
+                }
                 serverId++;
             }
 

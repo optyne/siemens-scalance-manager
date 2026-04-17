@@ -141,6 +141,7 @@ inferred items are limited to output parsing and edge cases.
 | `system name <name>` 255 字元上限 + SSH 安全字元檢查 | PH_SCALANCE-S615-CLI_76 sec 5.1.11.12 p. 98-99 | **Verified + enforced 2026-04**。新增 `BuildSetSystemName` 共用 builder；長度超過 255 或含 CR/LF/`"`/NUL 立即丟例外；`ApplyBasicWizardAsync` 改呼叫此 builder，避免原本字串直接內插至 `configure terminal` 批次中。|
 | `user-account <user-name>` 1-250 字元 + 禁用字元 `§ ? " ; :` 空白 Delete | PH_SCALANCE-S615-CLI_76 sec 12.1.4.7 p. 575 | **Verified + enforced 2026-04**。先前 `BuildSetUserAccount` 只擋空字串，長度超限與含分號/引號的 username 會造成 CLI 行被誤切（例：`name;inject` → `user-account name;inject password …`）。新增 `ValidateUserName` 與 `ValidateRoleOrToken`，防禦 SSH 行級注入並對應手冊禁用集。|
 | IPv4 位址/遮罩/閘道/DNS 嚴格四段驗證 | PH_SCALANCE-S615-CLI_76 sec 9.1.2.5 p. 331（ip route）、sec 9.1.3.2 p. 338（ip address）、sec 9.7.3.1 p. 414（manual srv） | **Verified + enforced 2026-04**。`RequireIpv4` 強制 `a.b.c.d` 四段；`System.Net.IPAddress.TryParse` 會把 `1.2.3` 誤判為 `1.2.0.3`（legacy BSD form），裝置不接受。`BuildSetInterface` 與 `BuildSetDns` 所有 IP 欄位（含 DNS 伺服器、閘道、靜態 IP/遮罩）皆經此檢查；`InterfaceName` 與 `DomainName` 同步加上 SSH 安全字元檢查。|
+| NTP server 行格式化 + FQDN 100 字元上限 | PH_SCALANCE-S615-CLI_76 sec 7.2.3.1 p. 217 | **Verified + enforced 2026-04**。抽出 `FormatNtpServerLine(id, host)` 共用 builder；id 1-3 驗證；IPv4 採嚴格四段；FQDN 超過 100 字元或含 space/CR/LF/`"`/NUL 立即丟例外。`SetNtpAsync` 改呼叫此 builder，失敗直接回 `OperationResult.Fail`。|
 
 ## Re-verification procedure
 
