@@ -819,8 +819,11 @@ public static class ScalanceCliCommands
         {
             if (c == '\r' || c == '\n' || c == '"')
                 throw new ArgumentException("password contains illegal control character.", nameof(pwd));
-            // Siemens-disallowed charset per S615 CLI manual p. 576.
-            if (c == '§' || c == '?' || c == ';' || c == ':' || c == '`' || c == '\\' || c == ' ' || c == '\x7f')
+            // Siemens-disallowed charset per S615 CLI manual p. 576 user-password:
+            //   § ? " ; : ß \ + Space + Delete. The sharp-s 'ß' (U+00DF) is
+            //   the correct character — NOT backtick '`' (which was a prior
+            //   transcription error from fonts where the two look similar).
+            if (c == '§' || c == '?' || c == ';' || c == ':' || c == 'ß' || c == '\\' || c == ' ' || c == '\x7f')
                 throw new ArgumentException($"password contains disallowed character '{c}' (S615 manual p. 576).", nameof(pwd));
         }
     }

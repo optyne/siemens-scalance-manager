@@ -29,6 +29,15 @@ public class AdminPasswordDnsTests
     }
 
     [Fact]
+    public void PasswordValidation_allows_backtick()
+    {
+        // Backtick was previously (incorrectly) disallowed — a transcription
+        // error. S615 manual p. 576 lists 'ß' (sharp-s), NOT '`' (backtick).
+        var cmds = ScalanceCliCommands.BuildChangeOwnPassword("back`tick");
+        cmds[0].Should().Be("change password back`tick");
+    }
+
+    [Fact]
     public void BuildSetUserAccount_rejects_missing_role()
     {
         var act = () => ScalanceCliCommands.BuildSetUserAccount("u", "Pwd1234!", "");
@@ -52,6 +61,7 @@ public class AdminPasswordDnsTests
     [InlineData("back\\slash")]       // S615 manual p. 576 disallowed
     [InlineData("has space")]         // S615 manual p. 576 disallowed
     [InlineData("qu?mark")]           // S615 manual p. 576 disallowed
+    [InlineData("schlo\u00dfword")]   // ß (U+00DF) — S615 manual p. 576 disallowed
     public void PasswordValidation_rejects_disallowed_chars(string pwd)
     {
         var act = () => ScalanceCliCommands.BuildChangeOwnPassword(pwd);

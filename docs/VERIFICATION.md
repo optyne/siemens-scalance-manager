@@ -103,7 +103,7 @@ inferred items are limited to output parsing and edge cases.
 |------|--------|--------|
 | `change password <pwd>` (User/Privileged EXEC, 改自己的密碼) | PH_SCALANCE-S615-CLI_76 sec 12.1.2 p. 567 | **Verified by manual**。`BuildChangeOwnPassword` 產生；不需 `configure terminal` / `write memory`（Trial mode 立即儲存）。|
 | `user-account <name> password <pwd> role <role>` (global config, 改別人密碼) | PH_SCALANCE-S615-CLI_76 sec 12.1.4.7 p. 575 | **Verified by manual**。`BuildSetUserAccount` 產生；`role` 為必要參數。手冊明確規定：**無法修改當前已登入的使用者**，必須用 `change password`。|
-| 密碼字元限制：不可含 `§ ? " ; : \` `` ` `` `\` 空白 Delete | S615 CLI manual p. 576 | `ValidatePassword` 於 builder 層拒絕；加上 CR/LF 防 SSH 行級注入。|
+| 密碼字元限制：不可含 `§ ? " ; : ß \` 空白 Delete | S615 CLI manual p. 576 | **Re-verified 2026-04 via pypdf**。先前版本誤把 `ß`（U+00DF, sharp-s）抄成 `` ` ``（backtick），導致程式錯誤地允許 `ß`（裝置會拒絕）並禁止 `` ` ``（裝置允許）。`ValidatePassword` 已修正。CR/LF/`"` 於 builder 層額外擋，以防 SSH 行級注入。|
 | `system name <name>` (不是 `hostname`) | PH_SCALANCE-S615-CLI_76 sec 5.1.11.12 p. 98 | **Verified by manual**。`ApplyBasicWizardAsync` 已改用此指令。|
 | `dnsclient` → `server type manual` / `manual srv <ip>` / `no shutdown` | PH_SCALANCE-S615-CLI_76 sec 9.7, pp. 408-417 | **Verified by manual**。`BuildSetDns` 產生。|
 | `no manual all` 清除全部 DNS 伺服器 | PH_SCALANCE-S615-CLI_76 sec 9.7.3.2 p. 415 | **Verified by manual**。先前 `no manual srv`（無參數）無效，已修正。|
