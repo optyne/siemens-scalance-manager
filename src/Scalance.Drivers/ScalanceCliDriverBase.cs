@@ -133,10 +133,19 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
                 serverId++;
             }
 
-            cmds.Add("exit"); // back to cli(config)#
-
+            // Time zone offset: SCALANCE uses `ntp time diff +HH:MM` INSIDE
+            // NTP config mode (S615 CLI manual sec 7.2.3.6 p. 221). It is NOT
+            // the Cisco-IOS `clock timezone`. Value must be signed with both
+            // components two-digit (e.g. "+08:00", "-05:30").
             if (!string.IsNullOrEmpty(config.Timezone))
-                cmds.Add($"clock timezone {config.Timezone}");
+            {
+                if (!IsValidNtpTimeDiff(config.Timezone))
+                    return OperationResult.Fail(
+                        $"Timezone '{config.Timezone}' 格式錯誤。SCALANCE 需要 '+HH:MM' 或 '-HH:MM'（例如 '+08:00'）。");
+                cmds.Add($"ntp time diff {config.Timezone}");
+            }
+
+            cmds.Add("exit"); // back to cli(config)#
 
             cmds.Add("end");
             cmds.Add("write memory");
@@ -147,6 +156,17 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
         {
             return OperationResult.Fail($"SetNtp failed: {ex.Message}", ex);
         }
+    }
+
+    private static bool IsValidNtpTimeDiff(string s)
+    {
+        // Expect exactly "+HH:MM" or "-HH:MM". Manual p. 221: signed, no spaces,
+        // both fields two digits including leading zero.
+        if (s.Length != 6) return false;
+        if (s[0] != '+' && s[0] != '-') return false;
+        if (s[3] != ':') return false;
+        return int.TryParse(s.AsSpan(1, 2), out var h) && h is >= 0 and <= 14
+            && int.TryParse(s.AsSpan(4, 2), out var m) && m is >= 0 and <= 59;
     }
 
     public override async Task<OperationResult<string>> BackupConfigAsync(CancellationToken ct = default)

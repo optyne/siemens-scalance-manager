@@ -114,6 +114,8 @@ inferred items are limited to output parsing and edge cases.
 | `interface fa 0/N` vs `interface vlan N` | PH_SCALANCE-S615-CLI_76 sec 3.7.5 p. 57 | **Verified**。實體埠用 `fa 0/N`，VLAN 介面用 `vlan N`。`BuildSetInterface` 透過 `InterfaceName` 字串直傳，呼叫端需帶正確前綴。|
 | `ip route <prefix> <mask> <next-hop>` | PH_SCALANCE-S615-CLI_76 sec 9.1.2.5 p. 331 | **Verified by manual**。`ip route 0.0.0.0 0.0.0.0 <gw>` 設預設路由。|
 | `ip address <ip> <mask>` / `ip address dhcp` | PH_SCALANCE-S615-CLI_76 sec 9.1.3.2/3.3 p. 338-340 | **Verified by manual**。interface config 模式（VLAN 或 router port）。|
+| `ntp server id <1-3> { ipv4 <ip> \| fqdn-name <FQDN> \| ipv6 <ipv6> }` | PH_SCALANCE-S615-CLI_76 sec 7.2.3.1 p. 217 | **Verified by manual**。最多 3 台；`poll` 範圍 64-2592000 秒。|
+| `ntp time diff +HH:MM`（非 `clock timezone`） | PH_SCALANCE-S615-CLI_76 sec 7.2.3.6 p. 221 | **Verified by manual**。於 NTP config 模式內使用；必須帶正負號、兩位數。先前用 `clock timezone` 是 Cisco 語法誤植，已修正並加入 `IsValidNtpTimeDiff` 格式驗證。|
 
 ## Re-verification procedure
 
