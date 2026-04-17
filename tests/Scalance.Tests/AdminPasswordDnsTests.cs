@@ -97,6 +97,61 @@ public class AdminPasswordDnsTests
         act.Should().Throw<ArgumentException>();
     }
 
+    // ---------- Syslog (manual p. 824) ----------
+
+    [Fact]
+    public void BuildAddSyslogServer_ipv4_default_port()
+    {
+        var cmds = ScalanceCliCommands.BuildAddSyslogServer(
+            new SyslogServer { Host = "10.0.0.5" });
+        cmds[0].Should().Be("configure terminal");
+        cmds.Should().Contain("events");
+        cmds.Should().Contain("syslogserver ipv4 10.0.0.5");
+        cmds[^1].Should().Be("write memory");
+    }
+
+    [Fact]
+    public void BuildAddSyslogServer_fqdn_with_port_and_tls()
+    {
+        var cmds = ScalanceCliCommands.BuildAddSyslogServer(
+            new SyslogServer { Host = "logs.example.com", Port = 6514, UseTls = true });
+        cmds.Should().Contain("syslogserver fqdn-name logs.example.com 6514 tls");
+    }
+
+    [Fact]
+    public void BuildAddSyslogServer_ipv6_literal()
+    {
+        var cmds = ScalanceCliCommands.BuildAddSyslogServer(
+            new SyslogServer { Host = "2001:db8::1" });
+        cmds.Should().Contain("syslogserver ipv6 2001:db8::1");
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(65536)]
+    public void BuildAddSyslogServer_rejects_port_out_of_range(int port)
+    {
+        var act = () => ScalanceCliCommands.BuildAddSyslogServer(
+            new SyslogServer { Host = "10.0.0.5", Port = port });
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void BuildAddSyslogServer_rejects_fqdn_over_100_chars()
+    {
+        var act = () => ScalanceCliCommands.BuildAddSyslogServer(
+            new SyslogServer { Host = new string('a', 101) });
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void BuildRemoveSyslogServer_uses_no_syslogserver()
+    {
+        var cmds = ScalanceCliCommands.BuildRemoveSyslogServer(
+            new SyslogServer { Host = "10.0.0.5" });
+        cmds.Should().Contain("no syslogserver ipv4 10.0.0.5");
+    }
+
     [Fact]
     public void BuildSetDns_rejects_more_than_three_servers()
     {

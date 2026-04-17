@@ -35,6 +35,10 @@ public interface IDeviceDriver : IAsyncDisposable
     Task<OperationResult<DnsConfig>> GetDnsAsync(CancellationToken ct = default);
     Task<OperationResult> SetDnsAsync(DnsConfig config, CancellationToken ct = default);
     Task<OperationResult> ApplyBasicWizardAsync(BasicWizardConfig config, CancellationToken ct = default);
+
+    // Syslog — PH_SCALANCE-S615-CLI_76 sec 13.2 pp. 822-825.
+    Task<OperationResult> AddSyslogServerAsync(SyslogServer server, CancellationToken ct = default);
+    Task<OperationResult> RemoveSyslogServerAsync(SyslogServer server, CancellationToken ct = default);
 }
 
 public interface IDeviceDriverFactory

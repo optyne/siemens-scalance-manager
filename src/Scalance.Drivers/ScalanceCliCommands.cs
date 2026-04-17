@@ -1030,6 +1030,86 @@ public static class ScalanceCliCommands
         }
     }
 
+    // ---------- Syslog client ----------
+
+    /// <summary>
+    /// Build CLI commands to add a Syslog server. Verified against
+    /// PH_SCALANCE-S615-CLI_76 sec 13.2.2.1 p. 824:
+    ///   syslogserver { ipv4 &lt;ucast_addr&gt; | fqdn-name &lt;FQDN&gt; | ipv6 &lt;ip6_addr&gt; }
+    ///                [&lt;port(1-65535)&gt;] [tls]
+    /// Emitted inside EVENTS config mode (entered via `events` from global).
+    /// </summary>
+    public static IReadOnlyList<string> BuildAddSyslogServer(SyslogServer s)
+    {
+        if (s is null) throw new ArgumentNullException(nameof(s));
+        var hostClause = FormatSyslogHostClause(s.Host);
+
+        var line = "syslogserver " + hostClause;
+        if (s.Port.HasValue)
+        {
+            if (s.Port.Value < 1 || s.Port.Value > 65535)
+                throw new ArgumentOutOfRangeException(nameof(s),
+                    $"Syslog port {s.Port.Value} 超出範圍 1-65535（manual p. 824）。");
+            line += $" {s.Port.Value}";
+        }
+        if (s.UseTls) line += " tls";
+
+        return new List<string>
+        {
+            "configure terminal",
+            "events",  // enter EVENTS config mode (manual sec 13.1.9.1 p. 811)
+            line,
+            "end",
+            "write memory",
+        };
+    }
+
+    /// <summary>
+    /// Build CLI commands to delete a Syslog server. Verified against
+    /// PH_SCALANCE-S615-CLI_76 sec 13.2.2.2 p. 825:
+    ///   no syslogserver { ipv4 &lt;ucast_addr&gt; | fqdn-name &lt;FQDN&gt; | ipv6 &lt;ip6_addr&gt; }
+    /// </summary>
+    public static IReadOnlyList<string> BuildRemoveSyslogServer(SyslogServer s)
+    {
+        if (s is null) throw new ArgumentNullException(nameof(s));
+        return new List<string>
+        {
+            "configure terminal",
+            "events",
+            "no syslogserver " + FormatSyslogHostClause(s.Host),
+            "end",
+            "write memory",
+        };
+    }
+
+    private static string FormatSyslogHostClause(string host)
+    {
+        if (string.IsNullOrWhiteSpace(host))
+            throw new ArgumentException("Syslog server host required.", nameof(host));
+
+        // Strict IPv4 dotted-quad branch.
+        var parts = host.Split('.');
+        if (parts.Length == 4
+            && System.Net.IPAddress.TryParse(host, out var ip)
+            && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+            return $"ipv4 {host}";
+
+        // IPv6 literal branch — IPAddress.TryParse accepts all RFC 4291 forms.
+        if (System.Net.IPAddress.TryParse(host, out var ip6)
+            && ip6.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+            return $"ipv6 {host}";
+
+        // FQDN branch — manual p. 824: max 100 chars; must be a single CLI token.
+        if (host.Length > 100)
+            throw new ArgumentException(
+                $"FQDN 長度 {host.Length} 超過 100 字元（S615 manual p. 824）。", nameof(host));
+        foreach (var c in host)
+            if (c == '\r' || c == '\n' || c == '"' || c == ' ' || c == '\0')
+                throw new ArgumentException(
+                    "FQDN 含非法字元（CR/LF/NUL/space/\"）。", nameof(host));
+        return $"fqdn-name {host}";
+    }
+
     // ---------- NTP server line ----------
 
     /// <summary>

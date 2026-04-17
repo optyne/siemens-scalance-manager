@@ -148,6 +148,7 @@ inferred items are limited to output parsing and edge cases.
 | `show ntp info` 輸出解析對應新 CLI 形式 | PH_SCALANCE-S615-CLI_76 sec 7.2.3.1 p. 217（`ntp server id <N> ipv4 <ip>` / `fqdn-name <fqdn>`） | **Fixed 2026-04**。原 `ParseNtp` 取 `token[2]`，遇到新形式會把 `"id"` 當作 host 回傳。改為優先抽取 `ipv4` / `fqdn-name` 關鍵詞後的一個 token；舊式 `ntp server <host>` 亦保留 fallback，避免對既有 fixture 回歸。|
 | IPsec 逐 tunnel disable 絕不發全域 `shutdown` | PH_SCALANCE-S615-CLI_76 sec 12.4.3.18/19 pp. 709-710 | **Fixed 2026-04**。原 `BuildSetVpnTunnel` 在 `t.Enabled=false` 時發 `shutdown`，但手冊明確說該指令會關閉**整個 IPsec 子系統**，連帶殺掉所有其他 tunnels。改為一律發 `no shutdown`（idempotent），per-tunnel 的停用完全由 `operation disabled` 處理。|
 | 設定 `ip address` 前先 `no ip address`（DHCP↔static 切換安全） | PH_SCALANCE-S615-CLI_76 sec 9.1.3.2 p. 339 要求：「DHCP was disabled with the no ip address command」 | **Fixed 2026-04**。`BuildSetInterface` 在 DHCP 與 static 分支都先 emit `no ip address`。從 DHCP 轉 static 時若省略此步驟，裝置可能仍保留舊 DHCP 狀態而拒絕新 static；idempotent，對既有靜態 IP 也無害。|
+| Syslog client 新功能（原本系統未支援） | PH_SCALANCE-S615-CLI_76 sec 13.2.2.1 p. 824（`syslogserver { ipv4 \| fqdn-name \| ipv6 } [port(1-65535)] [tls]`）；sec 13.2.2.2 p. 825（`no syslogserver ...`） | **Added 2026-04**。新增 `SyslogServer` 模型、`BuildAddSyslogServer` / `BuildRemoveSyslogServer` builders、`AddSyslogServerAsync` / `RemoveSyslogServerAsync` driver methods（S615 透過 CLI，X-200 從 SnmpDriverBase 取得 fail-by-default）。`DeviceCapability.SyslogClient` 加入 S615 與 ManagedSwitchCaps()。UI tab 規劃在下一輪接上。|
 
 ## Re-verification procedure
 

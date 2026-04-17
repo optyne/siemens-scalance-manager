@@ -27,7 +27,7 @@ public static class CapabilityMatrix
             DeviceCapability.IpsecVpn | DeviceCapability.OpenVpn |
             DeviceCapability.ConfigBackup | DeviceCapability.FirmwareUpdate |
             DeviceCapability.AdminPasswordChange | DeviceCapability.DnsClient |
-            DeviceCapability.BasicWizard,
+            DeviceCapability.BasicWizard | DeviceCapability.SyslogClient,
 
         // S615 already advertises VlanManagement above (it has an integrated L2 switch).
 
@@ -47,7 +47,7 @@ public static class CapabilityMatrix
         DeviceCapability.Ipv4Addressing | DeviceCapability.Dhcp |
         DeviceCapability.ConfigBackup | DeviceCapability.FirmwareUpdate |
         DeviceCapability.AdminPasswordChange | DeviceCapability.DnsClient |
-        DeviceCapability.BasicWizard;
+        DeviceCapability.BasicWizard | DeviceCapability.SyslogClient;
 
     public static DeviceCapability For(DeviceModelKind model) =>
         Map.TryGetValue(model, out var caps) ? caps : DeviceCapability.None;

@@ -831,6 +831,30 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
         }
     }
 
+    // ---------- Syslog client (manual sec 13.2 pp. 822-825) ----------
+
+    public override async Task<OperationResult> AddSyslogServerAsync(SyslogServer server, CancellationToken ct = default)
+    {
+        try
+        {
+            var cmds = ScalanceCliCommands.BuildAddSyslogServer(server);
+            return await RunOrPlanAsync(cmds, ct);
+        }
+        catch (ArgumentException ex) { return OperationResult.Fail(ex.Message, ex); }
+        catch (Exception ex) { return OperationResult.Fail($"AddSyslogServer failed: {ex.Message}", ex); }
+    }
+
+    public override async Task<OperationResult> RemoveSyslogServerAsync(SyslogServer server, CancellationToken ct = default)
+    {
+        try
+        {
+            var cmds = ScalanceCliCommands.BuildRemoveSyslogServer(server);
+            return await RunOrPlanAsync(cmds, ct);
+        }
+        catch (ArgumentException ex) { return OperationResult.Fail(ex.Message, ex); }
+        catch (Exception ex) { return OperationResult.Fail($"RemoveSyslogServer failed: {ex.Message}", ex); }
+    }
+
     // ---------- Basic Wizard (composition) ----------
     //
     // Mirrors the WBM "Basic Wizard" by applying hostname + interface IP + DNS +

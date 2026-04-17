@@ -152,6 +152,12 @@ public abstract class SnmpDriverBase : IDeviceDriver
     public virtual Task<OperationResult> ApplyBasicWizardAsync(BasicWizardConfig config, CancellationToken ct = default)
         => Task.FromResult(OperationResult.Fail("此設備不支援 Basic Wizard（需使用 WBM）。"));
 
+    public virtual Task<OperationResult> AddSyslogServerAsync(SyslogServer server, CancellationToken ct = default)
+        => Task.FromResult(OperationResult.Fail("此設備不支援 Syslog client 設定（需使用 WBM 或 CLI）。"));
+
+    public virtual Task<OperationResult> RemoveSyslogServerAsync(SyslogServer server, CancellationToken ct = default)
+        => Task.FromResult(OperationResult.Fail("此設備不支援 Syslog client 設定（需使用 WBM 或 CLI）。"));
+
     public virtual async ValueTask DisposeAsync()
     {
         if (Snmp is not null) await Snmp.DisposeAsync();

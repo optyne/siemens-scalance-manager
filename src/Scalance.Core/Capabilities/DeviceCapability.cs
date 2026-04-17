@@ -21,5 +21,6 @@ public enum DeviceCapability : long
     FirmwareUpdate  = 1 << 14,
     AdminPasswordChange = 1 << 15,
     DnsClient       = 1 << 16,
-    BasicWizard     = 1 << 17
+    BasicWizard     = 1 << 17,
+    SyslogClient    = 1 << 18
 }

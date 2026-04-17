@@ -49,6 +49,12 @@ public class CliCommandCoverageTests
 
         // Firewall (pp. 591-646)
         "firewall", "ipv4rule", "prerule",
+
+        // Events / syslog (pp. 811, 822-825)
+        "events", "syslogserver",
+
+        // System (sec 5.1.11.12 p. 98-99)
+        "system",
     };
 
     // "no <verb> ..." — when the first token is "no", validate the second token.
@@ -134,6 +140,13 @@ public class CliCommandCoverageTests
         foreach (var c in ScalanceCliCommands.BuildSetPredefinedRule(
             new PredefinedFirewallService { ServiceName = "https",
                 LocalAccess = true, ExternalAccess = false })) yield return c;
+
+        // System name + Syslog (new 2026-04)
+        foreach (var c in ScalanceCliCommands.BuildSetSystemName("edge-01")) yield return c;
+        foreach (var c in ScalanceCliCommands.BuildAddSyslogServer(
+            new SyslogServer { Host = "10.0.0.5", Port = 6514, UseTls = true })) yield return c;
+        foreach (var c in ScalanceCliCommands.BuildRemoveSyslogServer(
+            new SyslogServer { Host = "10.0.0.5" })) yield return c;
     }
 
     [Fact]
