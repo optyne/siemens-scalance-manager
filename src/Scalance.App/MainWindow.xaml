@@ -103,6 +103,9 @@
             <TabItem Header="Syslog">
                 <views:SyslogEditorView DataContext="{Binding Syslog}"/>
             </TabItem>
+            <TabItem Header="診斷">
+                <views:DiagnosticsView DataContext="{Binding Diagnostics}"/>
+            </TabItem>
             <TabItem Header="Basic Wizard">
                 <views:BasicWizardView DataContext="{Binding BasicWizard}"/>
             </TabItem>

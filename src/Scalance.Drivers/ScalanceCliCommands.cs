@@ -1030,6 +1030,72 @@ public static class ScalanceCliCommands
         }
     }
 
+    // ---------- Diagnostics: ping ----------
+
+    /// <summary>
+    /// Build the CLI line for an IPv4 / FQDN ping. Verified against
+    /// PH_SCALANCE-S615-CLI_76 sec 5.1.8 p. 86:
+    ///   ping { &lt;destination-address&gt; | fqdn-name &lt;FQDN&gt; }
+    ///        [size &lt;byte(0-2080)&gt;] [count &lt;packet_count(1-10)&gt;]
+    ///        [timeout &lt;seconds(1-100)&gt;]
+    /// Executed in User EXEC / Privileged EXEC — no `configure terminal`
+    /// wrapper. Returns a single command string for the caller to run.
+    /// </summary>
+    public static string FormatPingCommand(string host, PingOptions? opts = null)
+    {
+        if (string.IsNullOrWhiteSpace(host))
+            throw new ArgumentException("ping host required", nameof(host));
+
+        // Distinguish IPv4 vs FQDN — same rules as NTP (strict dotted-quad,
+        // FQDN ≤ 100 chars, SSH-safe).
+        string hostClause;
+        var parts = host.Split('.');
+        if (parts.Length == 4
+            && System.Net.IPAddress.TryParse(host, out var ip)
+            && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+        {
+            hostClause = host;
+        }
+        else
+        {
+            if (host.Length > 100)
+                throw new ArgumentException(
+                    $"FQDN 長度 {host.Length} 超過 100 字元（S615 manual p. 86）。", nameof(host));
+            foreach (var c in host)
+                if (c == '\r' || c == '\n' || c == '"' || c == ' ' || c == '\0')
+                    throw new ArgumentException(
+                        "FQDN 含非法字元（CR/LF/NUL/space/\"）。", nameof(host));
+            hostClause = $"fqdn-name {host}";
+        }
+
+        var line = $"ping {hostClause}";
+        if (opts is not null)
+        {
+            if (opts.SizeBytes is int sz)
+            {
+                if (sz < 0 || sz > 2080)
+                    throw new ArgumentOutOfRangeException(nameof(opts),
+                        $"ping size {sz} 超出範圍 0-2080（manual p. 86）。");
+                line += $" size {sz}";
+            }
+            if (opts.Count is int cnt)
+            {
+                if (cnt < 1 || cnt > 10)
+                    throw new ArgumentOutOfRangeException(nameof(opts),
+                        $"ping count {cnt} 超出範圍 1-10（manual p. 86）。");
+                line += $" count {cnt}";
+            }
+            if (opts.TimeoutSeconds is int to)
+            {
+                if (to < 1 || to > 100)
+                    throw new ArgumentOutOfRangeException(nameof(opts),
+                        $"ping timeout {to} 超出範圍 1-100（manual p. 86）。");
+                line += $" timeout {to}";
+            }
+        }
+        return line;
+    }
+
     // ---------- Syslog client ----------
 
     /// <summary>

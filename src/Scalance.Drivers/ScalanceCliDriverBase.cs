@@ -831,6 +831,23 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
         }
     }
 
+    // ---------- Diagnostics: ping (manual sec 5.1.8 p. 85-86) ----------
+
+    public override async Task<OperationResult<string>> PingAsync(string host, PingOptions? options = null, CancellationToken ct = default)
+    {
+        try
+        {
+            var cmd = ScalanceCliCommands.FormatPingCommand(host, options);
+            var ssh = await GetSshAsync(ct);
+            // Ping runs from User EXEC / Privileged EXEC — bypass DryRun;
+            // it is a read-only diagnostic and does not modify device state.
+            var output = await ssh.RunAsync(cmd, ct);
+            return OperationResult<string>.Ok(output);
+        }
+        catch (ArgumentException ex) { return OperationResult<string>.Fail(ex.Message, ex); }
+        catch (Exception ex) { return OperationResult<string>.Fail($"Ping failed: {ex.Message}", ex); }
+    }
+
     // ---------- Syslog client (manual sec 13.2 pp. 822-825) ----------
 
     public override async Task<OperationResult> AddSyslogServerAsync(SyslogServer server, CancellationToken ct = default)

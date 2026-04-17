@@ -449,6 +449,51 @@ public class ScalanceCliCommandsTests
         cmds.Should().Contain(c => c.StartsWith($"prerule {svcName} ipv4 int vlan"));
     }
 
+    // ---- ping (manual sec 5.1.8 p. 86) ----
+
+    [Fact]
+    public void FormatPingCommand_ipv4_without_options()
+    {
+        ScalanceCliCommands.FormatPingCommand("10.0.0.1")
+            .Should().Be("ping 10.0.0.1");
+    }
+
+    [Fact]
+    public void FormatPingCommand_fqdn_adds_keyword()
+    {
+        ScalanceCliCommands.FormatPingCommand("host.example.com")
+            .Should().Be("ping fqdn-name host.example.com");
+    }
+
+    [Fact]
+    public void FormatPingCommand_appends_options_in_manual_order()
+    {
+        var line = ScalanceCliCommands.FormatPingCommand("10.0.0.1",
+            new PingOptions { SizeBytes = 100, Count = 5, TimeoutSeconds = 2 });
+        line.Should().Be("ping 10.0.0.1 size 100 count 5 timeout 2");
+    }
+
+    [Theory]
+    [InlineData(-1, null, null)]
+    [InlineData(2081, null, null)]
+    [InlineData(null, 0, null)]
+    [InlineData(null, 11, null)]
+    [InlineData(null, null, 0)]
+    [InlineData(null, null, 101)]
+    public void FormatPingCommand_rejects_out_of_range_options(int? size, int? count, int? timeout)
+    {
+        var opts = new PingOptions { SizeBytes = size, Count = count, TimeoutSeconds = timeout };
+        var act = () => ScalanceCliCommands.FormatPingCommand("10.0.0.1", opts);
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void FormatPingCommand_rejects_fqdn_over_100_chars()
+    {
+        var act = () => ScalanceCliCommands.FormatPingCommand(new string('a', 101));
+        act.Should().Throw<ArgumentException>();
+    }
+
     [Theory]
     [InlineData(1, "192.168.1.1",  "ntp server id 1 ipv4 192.168.1.1")]
     [InlineData(2, "pool.ntp.org", "ntp server id 2 fqdn-name pool.ntp.org")]
