@@ -71,6 +71,11 @@ public interface IDeviceDriver : IAsyncDisposable
     // device reboots, which the implementation treats as success when the
     // command line itself was accepted.
     Task<OperationResult> RestartAsync(RestartMode mode, CancellationToken ct = default);
+
+    // Scheduled restart — PH_SCALANCE-S615-CLI_76 sec 5.3.2.3-4 pp. 133-134.
+    // seconds range: 300 (5 min) to 86400 (24 h).
+    Task<OperationResult> ScheduleRestartAsync(int seconds, CancellationToken ct = default);
+    Task<OperationResult> CancelScheduledRestartAsync(CancellationToken ct = default);
 }
 
 public interface IDeviceDriverFactory

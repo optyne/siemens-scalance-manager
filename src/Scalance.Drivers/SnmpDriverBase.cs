@@ -188,6 +188,11 @@ public abstract class SnmpDriverBase : IDeviceDriver
     public virtual Task<OperationResult> RestartAsync(RestartMode mode, CancellationToken ct = default)
         => Task.FromResult(OperationResult.Fail("此設備不支援 CLI restart（僅 SSH-CLI 裝置可用）。"));
 
+    public virtual Task<OperationResult> ScheduleRestartAsync(int seconds, CancellationToken ct = default)
+        => Task.FromResult(OperationResult.Fail("此設備不支援 scheduled restart（僅 SSH-CLI 裝置可用）。"));
+    public virtual Task<OperationResult> CancelScheduledRestartAsync(CancellationToken ct = default)
+        => Task.FromResult(OperationResult.Fail("此設備不支援 scheduled restart cancel（僅 SSH-CLI 裝置可用）。"));
+
     public virtual async ValueTask DisposeAsync()
     {
         if (Snmp is not null) await Snmp.DisposeAsync();

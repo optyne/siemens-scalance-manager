@@ -67,6 +67,9 @@ public class CliCommandCoverageTests
 
         // Event severity (sec 13.1.10.11 pp. 820-821)
         "severity",
+
+        // Scheduled restart (sec 5.3.2.3-4 pp. 133-134)
+        "schedule", "cancel",
     };
 
     // "no <verb> ..." — when the first token is "no", validate the second token.
@@ -176,6 +179,10 @@ public class CliCommandCoverageTests
         yield return ScalanceCliCommands.FormatRestartCommand(RestartMode.Current);
         yield return ScalanceCliCommands.FormatRestartCommand(RestartMode.Memory);
         yield return ScalanceCliCommands.FormatRestartCommand(RestartMode.Factory);
+
+        // Scheduled restart (sec 5.3.2.3-4 pp. 133-134)
+        foreach (var c in ScalanceCliCommands.BuildScheduleRestartTimer(600)) yield return c;
+        foreach (var c in ScalanceCliCommands.BuildCancelRestartTimer()) yield return c;
 
         // Event severity (sec 13.1.10.11 pp. 820-821)
         foreach (var c in ScalanceCliCommands.BuildSetEventSeverity(EventSink.Syslog, EventSeverity.Warning))

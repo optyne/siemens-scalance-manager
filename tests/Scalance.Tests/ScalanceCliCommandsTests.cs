@@ -515,6 +515,33 @@ public class ScalanceCliCommandsTests
         act.Should().Throw<ArgumentException>();
     }
 
+    // ---- scheduled restart (manual sec 5.3.2.3-4 pp. 133-134) ----
+
+    [Fact]
+    public void BuildScheduleRestartTimer_appends_force_and_wraps_config()
+    {
+        var cmds = ScalanceCliCommands.BuildScheduleRestartTimer(600);
+        cmds[0].Should().Be("configure terminal");
+        cmds.Should().Contain("schedule restart-timer 600 force");
+        cmds[^1].Should().Be("end");
+    }
+
+    [Theory]
+    [InlineData(299)]
+    [InlineData(86401)]
+    public void BuildScheduleRestartTimer_rejects_out_of_range(int seconds)
+    {
+        var act = () => ScalanceCliCommands.BuildScheduleRestartTimer(seconds);
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void BuildCancelRestartTimer_emits_cancel()
+    {
+        var cmds = ScalanceCliCommands.BuildCancelRestartTimer();
+        cmds.Should().Contain("cancel restart-timer");
+    }
+
     // ---- restart (manual sec 5.3.1 p. 130-131) ----
 
     [Theory]

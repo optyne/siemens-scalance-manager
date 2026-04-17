@@ -35,6 +35,9 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
     // Gated by an operator-visible checkbox so a stray click can't reboot.
     [ObservableProperty] private bool restartConfirmed;
 
+    // Scheduled restart — manual p. 133-134. Range 300-86400 sec.
+    [ObservableProperty] private string scheduleSecondsText = "600";
+
     // Output window (raw device response).
     [ObservableProperty] private string output = "";
 
@@ -67,6 +70,8 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
         RestartCurrentCommand.NotifyCanExecuteChanged();
         RestartMemoryCommand.NotifyCanExecuteChanged();
         RestartFactoryCommand.NotifyCanExecuteChanged();
+        ScheduleRestartCommand.NotifyCanExecuteChanged();
+        CancelScheduleCommand.NotifyCanExecuteChanged();
     }
 
     private bool CanPing()
@@ -156,6 +161,53 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
     private bool CanRestart()
         => _selection.Current is not null && FeatureSupported && !IsBusy && RestartConfirmed;
 
+    private bool CanSchedule()
+        => _selection.Current is not null && FeatureSupported && !IsBusy;
+
+    [RelayCommand(CanExecute = nameof(CanSchedule))]
+    private async Task ScheduleRestartAsync()
+    {
+        var d = _selection.Current;
+        if (d is null) return;
+        if (!int.TryParse(ScheduleSecondsText.Trim(), out var seconds)
+            || seconds < 300 || seconds > 86400)
+        {
+            StatusMessage = "排程秒數需在 300-86400（5 分~24 小時）之間。";
+            return;
+        }
+        IsBusy = true;
+        StatusMessage = $"排程 {seconds} 秒後重啟…";
+        try
+        {
+            await using var driver = await _ops.OpenAsync(d);
+            var r = await driver.ScheduleRestartAsync(seconds);
+            DryRunPreview.LogIfDryRun(driver, _log, "schedule restart-timer");
+            StatusMessage = r.Success
+                ? $"已排程 — 裝置將在約 {seconds} 秒（{seconds / 60} 分）後重啟。"
+                : $"失敗：{r.Message}";
+        }
+        catch (Exception ex) { StatusMessage = $"錯誤：{ex.Message}"; }
+        finally { IsBusy = false; }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanSchedule))]
+    private async Task CancelScheduleAsync()
+    {
+        var d = _selection.Current;
+        if (d is null) return;
+        IsBusy = true;
+        StatusMessage = "取消排程重啟…";
+        try
+        {
+            await using var driver = await _ops.OpenAsync(d);
+            var r = await driver.CancelScheduledRestartAsync();
+            DryRunPreview.LogIfDryRun(driver, _log, "cancel restart-timer");
+            StatusMessage = r.Success ? "已取消排程。" : $"失敗：{r.Message}";
+        }
+        catch (Exception ex) { StatusMessage = $"錯誤：{ex.Message}"; }
+        finally { IsBusy = false; }
+    }
+
     [RelayCommand(CanExecute = nameof(CanRestart))]
     private Task RestartCurrentAsync() => RunRestartAsync(RestartMode.Current, "目前設定");
 
@@ -204,6 +256,8 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
         RestartCurrentCommand.NotifyCanExecuteChanged();
         RestartMemoryCommand.NotifyCanExecuteChanged();
         RestartFactoryCommand.NotifyCanExecuteChanged();
+        ScheduleRestartCommand.NotifyCanExecuteChanged();
+        CancelScheduleCommand.NotifyCanExecuteChanged();
     }
     partial void OnPingHostChanged(string value) => PingCommand.NotifyCanExecuteChanged();
     partial void OnTraceHostChanged(string value) => TraceRouteCommand.NotifyCanExecuteChanged();

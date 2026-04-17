@@ -1199,6 +1199,48 @@ public static class ScalanceCliCommands
         return names;
     }
 
+    // ---------- Scheduled restart (manual sec 5.3.2.3-4 pp. 133-134) ----------
+
+    /// <summary>
+    /// Build CLI to schedule a device restart after a delay. Verified against
+    /// PH_SCALANCE-S615-CLI_76 sec 5.3.2.3 pp. 133-134:
+    ///   schedule restart-timer &lt;seconds(300-86400)&gt; [force]
+    /// Entered from Global configuration mode. The <c>force</c> keyword
+    /// suppresses auto-save mode prompts so a headless script can use it.
+    /// </summary>
+    public static IReadOnlyList<string> BuildScheduleRestartTimer(int seconds, bool force = true)
+    {
+        if (seconds < 300 || seconds > 86400)
+            throw new ArgumentOutOfRangeException(nameof(seconds),
+                $"schedule restart-timer {seconds} 超出範圍 300-86400 秒（manual p. 134）。");
+        var line = $"schedule restart-timer {seconds}" + (force ? " force" : "");
+        return new List<string>
+        {
+            "configure terminal",
+            line,
+            "end",
+        };
+        // Note: no `write startup-config` here — the manual explicitly states
+        // unsaved configuration is lost on the scheduled restart; the operator
+        // is expected to call `write startup-config` (our BackupConfig flow)
+        // ahead of scheduling if they want settings preserved.
+    }
+
+    /// <summary>
+    /// Build CLI to cancel a pending scheduled restart. Verified against
+    /// PH_SCALANCE-S615-CLI_76 sec 5.3.2.4 p. 134:
+    ///   cancel restart-timer
+    /// </summary>
+    public static IReadOnlyList<string> BuildCancelRestartTimer()
+    {
+        return new List<string>
+        {
+            "configure terminal",
+            "cancel restart-timer",
+            "end",
+        };
+    }
+
     // ---------- Device lifecycle: restart (manual sec 5.3.1 p. 130-131) ----------
 
     /// <summary>

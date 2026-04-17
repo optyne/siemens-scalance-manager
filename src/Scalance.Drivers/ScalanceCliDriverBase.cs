@@ -198,6 +198,27 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
         return await RunOrPlanAsync(new[] { cmd }, ct);
     }
 
+    public override async Task<OperationResult> ScheduleRestartAsync(int seconds, CancellationToken ct = default)
+    {
+        try
+        {
+            var cmds = ScalanceCliCommands.BuildScheduleRestartTimer(seconds, force: true);
+            return await RunOrPlanAsync(cmds, ct);
+        }
+        catch (ArgumentOutOfRangeException ex) { return OperationResult.Fail(ex.Message, ex); }
+        catch (Exception ex) { return OperationResult.Fail($"ScheduleRestart failed: {ex.Message}", ex); }
+    }
+
+    public override async Task<OperationResult> CancelScheduledRestartAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var cmds = ScalanceCliCommands.BuildCancelRestartTimer();
+            return await RunOrPlanAsync(cmds, ct);
+        }
+        catch (Exception ex) { return OperationResult.Fail($"CancelScheduledRestart failed: {ex.Message}", ex); }
+    }
+
     // ---------- SNMP agent controls (manual sec 9.8 pp. 437-452) ----------
 
     public override async Task<OperationResult> SetSnmpAgentEnabledAsync(bool enabled, CancellationToken ct = default)
