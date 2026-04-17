@@ -25,6 +25,23 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
     /// <summary>Commands planned by the most recent write call (useful in DryRun).</summary>
     public IReadOnlyList<string> LastPlannedCommands { get; private set; } = Array.Empty<string>();
 
+    // When a multi-step operation (e.g. ApplyBasicWizardAsync) is running, it
+    // calls BeginPlanSession() so that each internal RunOrPlanAsync appends to
+    // this aggregate instead of overwriting LastPlannedCommands. EndPlanSession
+    // flushes the aggregate into LastPlannedCommands so the UI preview shows
+    // the full wizard plan, not just the last sub-step.
+    private List<string>? _planSession;
+
+    private void BeginPlanSession() => _planSession = new List<string>();
+    private void EndPlanSession()
+    {
+        if (_planSession is not null)
+        {
+            LastPlannedCommands = _planSession;
+            _planSession = null;
+        }
+    }
+
     /// <param name="forceExecute">
     /// Pass true on paths whose syntax is already validated (NTP). Paths whose
     /// syntax is inferred from Cisco-IOS conventions should pass false so that
@@ -34,10 +51,12 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
     {
         if (DryRun && !forceExecute)
         {
-            LastPlannedCommands = cmds;
+            if (_planSession is not null) _planSession.AddRange(cmds);
+            else LastPlannedCommands = cmds;
             return OperationResult.Ok();
         }
-        LastPlannedCommands = Array.Empty<string>(); // cleared after a real execution so UI does not misreport a preview
+        if (_planSession is null)
+            LastPlannedCommands = Array.Empty<string>(); // cleared after a real execution so UI does not misreport a preview
         var ssh = await GetSshAsync(ct);
         await ssh.RunBatchAsync(cmds, ct);
         return OperationResult.Ok();
@@ -757,6 +776,9 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
         if (config is null) return OperationResult.Fail("Basic Wizard config is null.");
 
         var failures = new List<string>();
+        BeginPlanSession();
+        try
+        {
 
         if (!string.IsNullOrWhiteSpace(config.Hostname))
         {
@@ -794,6 +816,8 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
         return failures.Count == 0
             ? OperationResult.Ok()
             : OperationResult.Fail("Basic Wizard 部分步驟失敗：" + string.Join("; ", failures));
+        }
+        finally { EndPlanSession(); }
     }
 
     public override async ValueTask DisposeAsync()

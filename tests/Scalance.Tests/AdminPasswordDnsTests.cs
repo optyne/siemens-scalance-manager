@@ -61,6 +61,29 @@ public class AdminPasswordDnsTests
     }
 
     [Fact]
+    public async Task ApplyBasicWizard_DryRun_aggregates_all_step_commands_into_preview()
+    {
+        var driver = new S615Driver { DryRun = true };
+        var cfg = new BasicWizardConfig
+        {
+            Hostname = "scalance-lab",
+            // Omit Ntp — SetNtpAsync uses forceExecute=true which bypasses DryRun
+            // and would try to open an SSH session.
+            Dns = new DnsConfig { Servers = { "8.8.8.8" } },
+            NewAdminPassword = "new-p@ss"
+        };
+
+        var r = await driver.ApplyBasicWizardAsync(cfg);
+
+        r.Success.Should().BeTrue();
+        // The aggregated preview should include commands from ALL three steps,
+        // not just the last one (password).
+        driver.LastPlannedCommands.Should().Contain("hostname scalance-lab");
+        driver.LastPlannedCommands.Should().Contain("manual srv 8.8.8.8");
+        driver.LastPlannedCommands.Should().Contain("username admin password new-p@ss");
+    }
+
+    [Fact]
     public void ParseDnsClient_extracts_manual_servers()
     {
         var output = """
