@@ -377,6 +377,36 @@ public class ScalanceCliCommandsTests
     }
 
     [Fact]
+    public void BuildSetSystemName_emits_system_name_not_hostname()
+    {
+        // Manual p. 98-99: SCALANCE uses `system name <name>`, NOT the
+        // Cisco-IOS `hostname`. Max 255 characters.
+        var cmds = ScalanceCliCommands.BuildSetSystemName("edge-router-01");
+        cmds.Should().Contain("system name edge-router-01");
+        cmds.Should().NotContain(c => c.StartsWith("hostname "));
+        cmds[0].Should().Be("configure terminal");
+        cmds[^1].Should().Be("write memory");
+    }
+
+    [Fact]
+    public void BuildSetSystemName_rejects_over_255_chars()
+    {
+        var act = () => ScalanceCliCommands.BuildSetSystemName(new string('x', 256));
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Theory]
+    [InlineData("has\nnewline")]
+    [InlineData("has\rcr")]
+    [InlineData("has\"quote")]
+    public void BuildSetSystemName_rejects_ssh_unsafe_chars(string name)
+    {
+        // Transport-layer defence — these would break the batched command stream.
+        var act = () => ScalanceCliCommands.BuildSetSystemName(name);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
     public void FirewallRule_default_uses_space_separated_iftype()
     {
         // Manual p. 627: `from <iftype> [<ifstring>]` — iftype and ifstring

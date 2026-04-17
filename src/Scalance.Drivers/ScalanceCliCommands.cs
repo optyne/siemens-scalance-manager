@@ -858,6 +858,38 @@ public static class ScalanceCliCommands
         }
     }
 
+    // ---------- System name (hostname) ----------
+
+    /// <summary>
+    /// Build CLI commands to set the device system name (hostname).
+    /// Verified against PH_SCALANCE-S615-CLI_76 sec 5.1.11.12 p. 98-99:
+    ///   system name &lt;system name&gt;    (max 255 characters)
+    /// Note: SCALANCE uses `system name`, NOT the Cisco-IOS `hostname`.
+    /// </summary>
+    public static IReadOnlyList<string> BuildSetSystemName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("system name required", nameof(name));
+        // Manual p. 99: max 255 characters.
+        if (name.Length > 255)
+            throw new ArgumentException(
+                $"system name 長度 {name.Length} 超過 255 字元（S615 manual p. 99）。",
+                nameof(name));
+        // Defend the SSH batched stream: CR/LF would break command boundaries;
+        // a double-quote mid-name could break `system name "..."` style quoting.
+        foreach (var c in name)
+            if (c == '\r' || c == '\n' || c == '"' || c == '\0')
+                throw new ArgumentException(
+                    "system name 含非法控制字元 (CR/LF/NUL/\").", nameof(name));
+        return new List<string>
+        {
+            "configure terminal",
+            $"system name {name}",
+            "end",
+            "write memory",
+        };
+    }
+
     // ---------- DNS client (uses verified dnsclient mode — see BuildSetInterface header) ----------
 
     /// <summary>

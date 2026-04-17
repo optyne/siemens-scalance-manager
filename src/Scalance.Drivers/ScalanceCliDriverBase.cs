@@ -813,10 +813,15 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
         if (!string.IsNullOrWhiteSpace(config.Hostname))
         {
             // Verified: SCALANCE uses `system name <name>` — S615 CLI manual sec
-            // 5.1.11.12 p. 98. Cisco-style `hostname` would be rejected.
-            var cmds = new[] { "configure terminal", $"system name {config.Hostname}", "end", "write memory" };
-            var r = await RunOrPlanAsync(cmds, ct);
-            if (!r.Success) failures.Add($"hostname: {r.Message}");
+            // 5.1.11.12 p. 98. Cisco-style `hostname` would be rejected. Length
+            // and SSH-safety validation live in BuildSetSystemName.
+            try
+            {
+                var cmds = ScalanceCliCommands.BuildSetSystemName(config.Hostname);
+                var r = await RunOrPlanAsync(cmds, ct);
+                if (!r.Success) failures.Add($"hostname: {r.Message}");
+            }
+            catch (ArgumentException ex) { failures.Add($"hostname: {ex.Message}"); }
         }
 
         if (config.Interface is not null)
