@@ -351,7 +351,21 @@ public static class ScalanceCliCommands
     public const string ShowFirewallInfo = "show firewall information";
     public const string ShowFirewallServices = "show firewall ip-services";
 
-    /// <summary>Build CLI commands to create a new IPv4 firewall rule.</summary>
+    /// <summary>
+    /// Build CLI commands to create a new IPv4 firewall rule.
+    ///
+    /// Verified against S615 CLI manual sec 12.3.4.31 p. 627-629:
+    ///   ipv4rule from &lt;iftype&gt; [&lt;ifstring&gt;] to &lt;iftype&gt; [&lt;ifstring&gt;]
+    ///             srcip &lt;ip|subnet|range&gt; dstip &lt;ip|subnet|range&gt;
+    ///             action {drop|acc|rej}
+    ///             [service &lt;all|name(32)&gt;] [log {no|info|war|cri}]
+    ///             [prior &lt;0-127&gt;] [comment &lt;string(32)&gt;]
+    ///
+    /// Caller is responsible for using valid iftype keywords in From/To
+    /// (e.g. "vlan 1", "Device", "IPsec 3"). Wildcard source/destination is
+    /// expressed as "0.0.0.0/0" — the "*" form used previously is invalid
+    /// per manual and rejected by the device.
+    /// </summary>
     public static IReadOnlyList<string> BuildCreateFirewallRule(FirewallRule rule)
     {
         if (rule is null) throw new ArgumentNullException(nameof(rule));
@@ -364,23 +378,28 @@ public static class ScalanceCliCommands
             _ => "acc",
         };
 
-        var src = string.IsNullOrWhiteSpace(rule.SourceCidr) || rule.SourceCidr == "0.0.0.0/0"
-            ? "*" : rule.SourceCidr;
-        var dst = string.IsNullOrWhiteSpace(rule.DestinationCidr) || rule.DestinationCidr == "0.0.0.0/0"
-            ? "*" : rule.DestinationCidr;
+        var src = string.IsNullOrWhiteSpace(rule.SourceCidr) ? "0.0.0.0/0" : rule.SourceCidr;
+        var dst = string.IsNullOrWhiteSpace(rule.DestinationCidr) ? "0.0.0.0/0" : rule.DestinationCidr;
 
         var svc = string.IsNullOrWhiteSpace(rule.Service) ||
                   rule.Service.Equals("All", StringComparison.OrdinalIgnoreCase)
             ? "all" : rule.Service;
+        if (svc.Length > 32)
+            throw new ArgumentException($"service name '{svc}' 超過 32 字元（manual p. 628）。", nameof(rule));
 
-        // Build the ipv4rule command line
         var cmd = $"ipv4rule from {rule.From} to {rule.To} srcip {src} dstip {dst} action {actionStr} service {svc}";
 
+        // log values per manual p. 628: {no|info|war|cri}. "info" is the most
+        // commonly useful level; the Log bool maps to it.
         if (rule.Log)
             cmd += " log info";
 
         if (rule.Index > 0)
+        {
+            if (rule.Index > 127)
+                throw new ArgumentOutOfRangeException(nameof(rule), $"prior {rule.Index} 超出範圍 0-127（manual p. 629）。");
             cmd += $" prior {rule.Index}";
+        }
 
         return new List<string>
         {

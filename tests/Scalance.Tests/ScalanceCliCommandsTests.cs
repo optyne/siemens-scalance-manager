@@ -274,6 +274,35 @@ public class ScalanceCliCommandsTests
     }
 
     [Fact]
+    public void BuildCreateFirewallRule_uses_0_0_0_0_0_for_wildcard_not_asterisk()
+    {
+        // Manual sec 12.3.4.31 p. 628: srcip/dstip accept <ip|subnet|range>,
+        // where all-addresses is "0.0.0.0/0". The '*' wildcard is NOT valid.
+        var rule = new FirewallRule
+        {
+            From = "vlan 1", To = "Device",
+            Action = FirewallAction.Accept,
+            SourceCidr = "", DestinationCidr = "",
+            Service = "All"
+        };
+        var cmds = ScalanceCliCommands.BuildCreateFirewallRule(rule);
+        cmds.Should().Contain(c => c.Contains("srcip 0.0.0.0/0 dstip 0.0.0.0/0"));
+        cmds.Should().NotContain(c => c.Contains("srcip *") || c.Contains("dstip *"));
+    }
+
+    [Fact]
+    public void BuildCreateFirewallRule_rejects_prior_above_127()
+    {
+        var rule = new FirewallRule
+        {
+            From = "vlan 1", To = "Device",
+            Action = FirewallAction.Accept, Index = 128
+        };
+        var act = () => ScalanceCliCommands.BuildCreateFirewallRule(rule);
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
     public void BuildSetVpnTunnel_rejects_name_over_122_chars()
     {
         // Manual sec 12.4.3.2 p. 699: connection name max 122 chars.
