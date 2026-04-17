@@ -809,7 +809,9 @@ public static class ScalanceCliCommands
     //       the currently-logged-in user (the manual forbids it: "logged in
     //       users cannot be deleted or changed"). Manual sec 12.1.4.7 p. 575.
     //
-    // Disallowed password characters per manual p. 576: § ? " ; : ` \ Space Delete.
+    // Disallowed password characters per manual p. 576: § ? " ; : ß \ Space Delete.
+    // Disallowed user-name  characters per manual p. 575: § ? " ; :       Space Delete.
+    //   (note: user-name does NOT forbid backslash or ß — only the password does.)
 
     /// <summary>
     /// Change the password of the currently logged-in user. Use this when the
@@ -829,8 +831,10 @@ public static class ScalanceCliCommands
     /// </summary>
     public static IReadOnlyList<string> BuildSetUserAccount(string username, string newPassword, string role)
     {
-        if (string.IsNullOrWhiteSpace(username)) throw new ArgumentException("username required", nameof(username));
-        if (string.IsNullOrWhiteSpace(role)) throw new ArgumentException("role required — e.g. 'admin'", nameof(role));
+        ValidateUserName(username);
+        if (string.IsNullOrWhiteSpace(role))
+            throw new ArgumentException("role required — e.g. 'admin'", nameof(role));
+        ValidateRoleOrToken(role, nameof(role));
         ValidatePassword(newPassword);
         return new List<string>
         {
@@ -839,6 +843,34 @@ public static class ScalanceCliCommands
             "end",
             "write memory"
         };
+    }
+
+    private static void ValidateUserName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("username required", nameof(name));
+        // Manual p. 575: 1-250 chars; disallowed set § ? " ; : + Space + Delete.
+        if (name.Length < 1 || name.Length > 250)
+            throw new ArgumentException(
+                $"username 長度 {name.Length} 不在 1-250 範圍（S615 manual p. 575）。", nameof(name));
+        foreach (var c in name)
+        {
+            if (c == '\r' || c == '\n')
+                throw new ArgumentException("username 含換行字元（SSH 注入防護）。", nameof(name));
+            if (c == '§' || c == '?' || c == '"' || c == ';' || c == ':' || c == ' ' || c == '\x7f')
+                throw new ArgumentException(
+                    $"username 含禁用字元 '{c}'（S615 manual p. 575）。", nameof(name));
+        }
+    }
+
+    private static void ValidateRoleOrToken(string token, string paramName)
+    {
+        // Role names reach the device verbatim on the same line as the password,
+        // so the minimum bar is no CR/LF/double-quote that could break the stream.
+        foreach (var c in token)
+            if (c == '\r' || c == '\n' || c == '"' || c == ' ')
+                throw new ArgumentException(
+                    $"{paramName} 含非法字元 '{c}' — 只允許單一 token，不可含空白或換行。",
+                    paramName);
     }
 
     private static void ValidatePassword(string pwd)

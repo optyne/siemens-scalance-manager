@@ -45,6 +45,35 @@ public class AdminPasswordDnsTests
     }
 
     [Theory]
+    [InlineData("name;withsemi")]   // manual p. 575 disallowed
+    [InlineData("name with space")] // manual p. 575 disallowed
+    [InlineData("name?q")]           // manual p. 575 disallowed
+    [InlineData("name\"quoted")]    // manual p. 575 disallowed
+    [InlineData("name\ninjection")] // CR/LF SSH defence
+    public void BuildSetUserAccount_rejects_disallowed_username_chars(string username)
+    {
+        var act = () => ScalanceCliCommands.BuildSetUserAccount(username, "Pwd1234!", "admin");
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void BuildSetUserAccount_rejects_username_over_250_chars()
+    {
+        var act = () => ScalanceCliCommands.BuildSetUserAccount(
+            new string('u', 251), "Pwd1234!", "admin");
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void BuildSetUserAccount_rejects_role_with_space_or_newline()
+    {
+        // Role reaches the device on the same line as the password; a space
+        // would shift field positions and a newline would break the batch.
+        var act = () => ScalanceCliCommands.BuildSetUserAccount("u", "Pwd1234!", "admin sneaky");
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Theory]
     [InlineData("")]
     [InlineData("  ")]
     public void PasswordValidation_rejects_blank(string pwd)

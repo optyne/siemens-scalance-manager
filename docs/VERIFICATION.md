@@ -139,6 +139,7 @@ inferred items are limited to output parsing and edge cases.
 | IPsec `auth psk <string(255)>` / `auth cacert <string(255)> localcert <string(255)>` 長度上限 | PH_SCALANCE-S615-CLI_76 sec 12.4.6.1 p. 728；sec 12.4.6.2 p. 729 | **Verified + enforced 2026-04**。`BuildSetVpnTunnel` 對 PSK 與憑證名超過 255 字元丟例外；PSK 額外禁 CR/LF/`"` 以防 SSH 行級注入。|
 | Predefined firewall service 白名單 | PH_SCALANCE-S615-CLI_76 sec 12.3.4.52-67 pp. 647-664 | **Verified + fixed 2026-04**。先前白名單含有手冊不存在的 `dcp`/`syslog`/`openvpn`/`sinemarc`（裝置會拒絕），同時遺漏了手冊有定義的 `cloudconnector`（p. 648）與 `vxlan`（p. 664）。已更正 `PredefinedRuleNames` 為：`cloudconnector/dhcp/dns/http/https/ipsec/ping/snmp/ssh/systime/tcpevent/telnet/vrrp/vxlan`。|
 | `system name <name>` 255 字元上限 + SSH 安全字元檢查 | PH_SCALANCE-S615-CLI_76 sec 5.1.11.12 p. 98-99 | **Verified + enforced 2026-04**。新增 `BuildSetSystemName` 共用 builder；長度超過 255 或含 CR/LF/`"`/NUL 立即丟例外；`ApplyBasicWizardAsync` 改呼叫此 builder，避免原本字串直接內插至 `configure terminal` 批次中。|
+| `user-account <user-name>` 1-250 字元 + 禁用字元 `§ ? " ; :` 空白 Delete | PH_SCALANCE-S615-CLI_76 sec 12.1.4.7 p. 575 | **Verified + enforced 2026-04**。先前 `BuildSetUserAccount` 只擋空字串，長度超限與含分號/引號的 username 會造成 CLI 行被誤切（例：`name;inject` → `user-account name;inject password …`）。新增 `ValidateUserName` 與 `ValidateRoleOrToken`，防禦 SSH 行級注入並對應手冊禁用集。|
 
 ## Re-verification procedure
 
