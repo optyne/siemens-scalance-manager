@@ -354,6 +354,28 @@ public class ScalanceCliCommandsTests
         act.Should().Throw<ArgumentException>();
     }
 
+    [Theory]
+    [InlineData("dcp")]        // Manual pp. 647-665: no such prerule.
+    [InlineData("syslog")]     // Manual pp. 647-665: no such prerule.
+    [InlineData("openvpn")]    // Manual pp. 647-665: no such prerule.
+    [InlineData("sinemarc")]   // Manual pp. 647-665: no such prerule.
+    public void BuildSetPredefinedRule_rejects_services_absent_from_manual(string svcName)
+    {
+        var svc = new PredefinedFirewallService { ServiceName = svcName };
+        var act = () => ScalanceCliCommands.BuildSetPredefinedRule(svc);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Theory]
+    [InlineData("cloudconnector")]  // Manual p. 648.
+    [InlineData("vxlan")]           // Manual p. 664.
+    public void BuildSetPredefinedRule_accepts_services_listed_in_manual(string svcName)
+    {
+        var svc = new PredefinedFirewallService { ServiceName = svcName, LocalAccess = true };
+        var cmds = ScalanceCliCommands.BuildSetPredefinedRule(svc);
+        cmds.Should().Contain(c => c.StartsWith($"prerule {svcName} ipv4 int vlan"));
+    }
+
     [Fact]
     public void FirewallRule_default_uses_space_separated_iftype()
     {

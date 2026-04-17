@@ -517,10 +517,17 @@ public static class ScalanceCliCommands
         return cmds;
     }
 
+    // Re-verified against PH_SCALANCE-S615-CLI_76 pp. 647-664 (sec 12.3.4.52
+    // through 12.3.4.67). These are the ONLY user-selectable `prerule <svc>`
+    // keywords. The earlier list contained `dcp`, `syslog`, `openvpn`, and
+    // `sinemarc` — none of which exist as prerules in the manual; the device
+    // would reject them. `cloudconnector` (p. 648) and `vxlan` (p. 664) were
+    // missing. `all` and `show-int` are management keywords, not service
+    // keywords, so they are intentionally not exposed here.
     private static readonly HashSet<string> PredefinedRuleNames = new(StringComparer.Ordinal)
     {
-        "dcp","dhcp","dns","http","https","ipsec","ping","snmp","ssh",
-        "syslog","systime","tcpevent","telnet","vrrp","openvpn","sinemarc"
+        "cloudconnector","dhcp","dns","http","https","ipsec","ping",
+        "snmp","ssh","systime","tcpevent","telnet","vrrp","vxlan"
     };
 
     // ---- firewall parsers ----
