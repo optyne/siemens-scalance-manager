@@ -106,12 +106,26 @@ public class ScalanceCliCommandsTests
     [Fact]
     public void BuildSetInterface_for_dhcp_emits_ip_address_dhcp()
     {
+        // Note: InterfaceName = "vlan1" (WBM compact form) is normalized to
+        // "vlan 1" for the CLI — see NormalizeInterfaceName doc comment.
         var cfg = new InterfaceIpConfig { InterfaceName = "vlan1", DhcpEnabled = true };
         var cmds = ScalanceCliCommands.BuildSetInterface(cfg);
 
-        cmds.Should().Contain("interface vlan1");
+        cmds.Should().Contain("interface vlan 1");
         cmds.Should().Contain("ip address dhcp");
         cmds.Last().Should().Be("write startup-config");
+    }
+
+    [Theory]
+    [InlineData("vlan1",  "vlan 1")]
+    [InlineData("vlan10", "vlan 10")]
+    [InlineData("ppp2",   "ppp 2")]
+    [InlineData("vlan 1", "vlan 1")]      // already normalized
+    [InlineData("Device", "Device")]      // unknown prefix passes through
+    [InlineData("fa 0/1", "fa 0/1")]      // physical port untouched
+    public void NormalizeInterfaceName_adds_space_before_digits_for_known_iftypes(string input, string expected)
+    {
+        ScalanceCliCommands.NormalizeInterfaceName(input).Should().Be(expected);
     }
 
     [Fact]

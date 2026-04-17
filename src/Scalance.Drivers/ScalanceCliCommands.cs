@@ -154,13 +154,21 @@ public static class ScalanceCliCommands
                 throw new ArgumentException(
                     "InterfaceName 含非法控制字元 (CR/LF/\").", nameof(cfg));
 
+        // Normalize the WBM/legacy compact form `vlan1` → the CLI-accepted
+        // `vlan 1` (manual p. 65 / p. 430 example: `int vlan 1`). `show ip
+        // interface` output on older firmware may use the compact form, so
+        // a round-trip load → apply would otherwise be rejected by the
+        // device with a cryptic error. Same normalization applies to `ppp2`
+        // → `ppp 2` for WAN interfaces.
+        var ifName = NormalizeInterfaceName(cfg.InterfaceName);
+
         var cmds = new List<string>
         {
             "configure terminal",
             // S615 interface config: interface <name>
             // For VLAN interfaces: interface vlan <id> -> cli(config-if-vlan-$$$)#
             // For physical ports: interface <type> <M.P> -> cli(config-if-$$$)#
-            $"interface {cfg.InterfaceName}",
+            $"interface {ifName}",
         };
 
         if (cfg.DhcpEnabled)
@@ -232,6 +240,33 @@ public static class ScalanceCliCommands
         cmds.Add("end");
         cmds.Add("write startup-config");
         return cmds;
+    }
+
+    /// <summary>
+    /// Normalize SCALANCE interface identifiers to the CLI-accepted
+    /// space-separated form. Manual examples p. 65 / p. 430 show
+    /// `int vlan 1` (with space); the compact `vlan1` form appears only in
+    /// WBM output and in `show ip interface` on some firmwares. Converting
+    /// here makes the round-trip load → edit → apply safe regardless of the
+    /// input format. Unknown prefixes are returned unchanged.
+    /// </summary>
+    internal static string NormalizeInterfaceName(string ifName)
+    {
+        if (string.IsNullOrWhiteSpace(ifName)) return ifName;
+        if (ifName.Contains(' ')) return ifName; // already normalized
+        // Match `<prefix><digits>` where prefix is `vlan` or `ppp` — the
+        // integer-indexed iftypes from manual p. 598. Insert a single space
+        // between the prefix and the digit string.
+        foreach (var prefix in new[] { "vlan", "ppp" })
+        {
+            if (ifName.Length > prefix.Length
+                && ifName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                && char.IsDigit(ifName[prefix.Length]))
+            {
+                return $"{ifName[..prefix.Length]} {ifName[prefix.Length..]}";
+            }
+        }
+        return ifName;
     }
 
     /// <summary>
