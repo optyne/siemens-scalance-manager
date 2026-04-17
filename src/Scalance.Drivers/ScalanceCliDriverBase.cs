@@ -188,6 +188,16 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
         }
     }
 
+    // ---------- Device restart (manual sec 5.3.1 p. 130-131) ----------
+
+    public override async Task<OperationResult> RestartAsync(RestartMode mode, CancellationToken ct = default)
+    {
+        var cmd = ScalanceCliCommands.FormatRestartCommand(mode);
+        // Destructive + reboots the session — route through RunOrPlanAsync so
+        // DryRun still holds the command back by default.
+        return await RunOrPlanAsync(new[] { cmd }, ct);
+    }
+
     // ---------- SNMP agent controls (manual sec 9.8 pp. 437-452) ----------
 
     public override async Task<OperationResult> SetSnmpAgentEnabledAsync(bool enabled, CancellationToken ct = default)

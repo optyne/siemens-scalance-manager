@@ -494,6 +494,17 @@ public class ScalanceCliCommandsTests
         act.Should().Throw<ArgumentException>();
     }
 
+    // ---- restart (manual sec 5.3.1 p. 130-131) ----
+
+    [Theory]
+    [InlineData(RestartMode.Current, "restart")]
+    [InlineData(RestartMode.Memory,  "restart memory")]
+    [InlineData(RestartMode.Factory, "restart factory")]
+    public void FormatRestartCommand_matches_manual(RestartMode mode, string expected)
+    {
+        ScalanceCliCommands.FormatRestartCommand(mode).Should().Be(expected);
+    }
+
     // ---- SNMP agent (manual sec 9.8 pp. 437-452) ----
 
     [Fact]

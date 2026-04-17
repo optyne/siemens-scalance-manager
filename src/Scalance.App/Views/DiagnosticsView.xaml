@@ -8,6 +8,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -59,17 +60,35 @@
                     Margin="12,0,0,0" Padding="14,2"/>
         </StackPanel>
 
-        <TextBlock Grid.Row="4" Text="輸出：" Margin="0,8,0,2" FontWeight="Bold"/>
+        <!-- Restart — manual sec 5.3.1 p. 130-131. Gated by confirmation checkbox. -->
+        <Border Grid.Row="4" Margin="0,12,0,0" Padding="6" BorderBrush="#D32F2F" BorderThickness="1" Background="#FFEBEE">
+            <StackPanel Orientation="Horizontal">
+                <CheckBox Content="我確認要重啟裝置（restart 立即生效）"
+                          IsChecked="{Binding RestartConfirmed}"
+                          VerticalAlignment="Center" FontWeight="Bold"/>
+                <Separator Width="12"/>
+                <Button Content="restart" Command="{Binding RestartCurrentCommand}"
+                        Padding="10,2" ToolTip="以目前設定重啟（非破壞性）"/>
+                <Button Content="restart memory" Command="{Binding RestartMemoryCommand}"
+                        Margin="6,0,0,0" Padding="10,2"
+                        ToolTip="除 IP/hostname/user 等保留項外，其餘 factory reset"/>
+                <Button Content="restart factory" Command="{Binding RestartFactoryCommand}"
+                        Margin="6,0,0,0" Padding="10,2"
+                        ToolTip="完全 factory reset（含 IP 與帳密）— 會失去連線"/>
+            </StackPanel>
+        </Border>
 
-        <TextBox Grid.Row="5" Text="{Binding Output, Mode=OneWay}"
+        <TextBlock Grid.Row="5" Text="輸出：" Margin="0,8,0,2" FontWeight="Bold"/>
+
+        <TextBox Grid.Row="6" Text="{Binding Output, Mode=OneWay}"
                  IsReadOnly="True" FontFamily="Consolas"
                  VerticalScrollBarVisibility="Auto"
                  HorizontalScrollBarVisibility="Auto"
                  AcceptsReturn="True" TextWrapping="NoWrap"
                  Background="#111" Foreground="#DCDCDC" Padding="6"/>
 
-        <ProgressBar Grid.Row="6" Height="4" IsIndeterminate="{Binding IsBusy}" Margin="0,4"/>
-        <StatusBar Grid.Row="7">
+        <ProgressBar Grid.Row="7" Height="4" IsIndeterminate="{Binding IsBusy}" Margin="0,4"/>
+        <StatusBar Grid.Row="8">
             <StatusBarItem>
                 <TextBlock Text="{Binding StatusMessage}"/>
             </StatusBarItem>

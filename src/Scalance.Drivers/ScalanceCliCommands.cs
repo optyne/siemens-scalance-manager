@@ -1179,6 +1179,24 @@ public static class ScalanceCliCommands
         return names;
     }
 
+    // ---------- Device lifecycle: restart (manual sec 5.3.1 p. 130-131) ----------
+
+    /// <summary>
+    /// Return the single CLI line that reboots the device. Verified against
+    /// PH_SCALANCE-S615-CLI_76 sec 5.3.1 p. 130-131:
+    ///   restart              (reboot with current config)
+    ///   restart memory       (factory-reset keeping protected presets)
+    ///   restart factory      (full factory reset)
+    /// Runs in Privileged EXEC — no configure-terminal wrapper.
+    /// </summary>
+    public static string FormatRestartCommand(RestartMode mode) => mode switch
+    {
+        RestartMode.Current => "restart",
+        RestartMode.Memory => "restart memory",
+        RestartMode.Factory => "restart factory",
+        _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null),
+    };
+
     // ---------- Diagnostics: ping ----------
 
     /// <summary>

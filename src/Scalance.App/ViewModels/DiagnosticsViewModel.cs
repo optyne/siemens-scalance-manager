@@ -31,6 +31,10 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
     // Traceroute inputs — manual p. 88 accepts ip/ipv6 literals only.
     [ObservableProperty] private string traceHost = "";
 
+    // Restart confirmation — manual p. 130-131 is destructive.
+    // Gated by an operator-visible checkbox so a stray click can't reboot.
+    [ObservableProperty] private bool restartConfirmed;
+
     // Output window (raw device response).
     [ObservableProperty] private string output = "";
 
@@ -60,6 +64,9 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
             : "此設備不支援 CLI 診斷（需要 SSH-CLI 能力）。";
         PingCommand.NotifyCanExecuteChanged();
         TraceRouteCommand.NotifyCanExecuteChanged();
+        RestartCurrentCommand.NotifyCanExecuteChanged();
+        RestartMemoryCommand.NotifyCanExecuteChanged();
+        RestartFactoryCommand.NotifyCanExecuteChanged();
     }
 
     private bool CanPing()
@@ -146,13 +153,66 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
         finally { IsBusy = false; }
     }
 
+    private bool CanRestart()
+        => _selection.Current is not null && FeatureSupported && !IsBusy && RestartConfirmed;
+
+    [RelayCommand(CanExecute = nameof(CanRestart))]
+    private Task RestartCurrentAsync() => RunRestartAsync(RestartMode.Current, "目前設定");
+
+    [RelayCommand(CanExecute = nameof(CanRestart))]
+    private Task RestartMemoryAsync() => RunRestartAsync(RestartMode.Memory, "memory（保留 IP/hostname/user 等）");
+
+    [RelayCommand(CanExecute = nameof(CanRestart))]
+    private Task RestartFactoryAsync() => RunRestartAsync(RestartMode.Factory, "factory（全部 factory reset）");
+
+    private async Task RunRestartAsync(RestartMode mode, string label)
+    {
+        var d = _selection.Current;
+        if (d is null) return;
+        IsBusy = true;
+        StatusMessage = $"送出 restart（{label}）…";
+        try
+        {
+            await using var driver = await _ops.OpenAsync(d);
+            var r = await driver.RestartAsync(mode);
+            DryRunPreview.LogIfDryRun(driver, _log, "restart");
+            if (r.Success)
+            {
+                Output = $"[restart {mode}] 指令已送出 — 裝置即將重啟，SSH 連線將中斷。";
+                StatusMessage = "restart 指令已送出。";
+            }
+            else
+            {
+                Output = $"[失敗] {r.Message}";
+                StatusMessage = $"失敗：{r.Message}";
+            }
+        }
+        catch (Exception ex)
+        {
+            // SSH session dying during reboot surfaces as an exception; that
+            // means the command was accepted — report it as an informational
+            // status rather than an error.
+            StatusMessage = $"連線在重啟中中斷（預期）：{ex.Message}";
+        }
+        finally { IsBusy = false; RestartConfirmed = false; }
+    }
+
     partial void OnIsBusyChanged(bool value)
     {
         PingCommand.NotifyCanExecuteChanged();
         TraceRouteCommand.NotifyCanExecuteChanged();
+        RestartCurrentCommand.NotifyCanExecuteChanged();
+        RestartMemoryCommand.NotifyCanExecuteChanged();
+        RestartFactoryCommand.NotifyCanExecuteChanged();
     }
     partial void OnPingHostChanged(string value) => PingCommand.NotifyCanExecuteChanged();
     partial void OnTraceHostChanged(string value) => TraceRouteCommand.NotifyCanExecuteChanged();
+    partial void OnRestartConfirmedChanged(bool value)
+    {
+        RestartCurrentCommand.NotifyCanExecuteChanged();
+        RestartMemoryCommand.NotifyCanExecuteChanged();
+        RestartFactoryCommand.NotifyCanExecuteChanged();
+    }
 
     partial void OnStatusMessageChanged(string? value)
     {

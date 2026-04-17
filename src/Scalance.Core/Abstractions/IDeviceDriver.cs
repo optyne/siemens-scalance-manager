@@ -60,6 +60,12 @@ public interface IDeviceDriver : IAsyncDisposable
     Task<OperationResult> SetSnmpAgentEnabledAsync(bool enabled, CancellationToken ct = default);
     Task<OperationResult> SetSnmpAgentVersionAsync(SnmpAgentVersionPolicy policy, CancellationToken ct = default);
     Task<OperationResult> SetSnmpAgentPortAsync(int port, CancellationToken ct = default);
+
+    // Device restart — PH_SCALANCE-S615-CLI_76 sec 5.3.1 p. 130-131.
+    // Always respects DryRun; the SSH session is expected to die as the
+    // device reboots, which the implementation treats as success when the
+    // command line itself was accepted.
+    Task<OperationResult> RestartAsync(RestartMode mode, CancellationToken ct = default);
 }
 
 public interface IDeviceDriverFactory
