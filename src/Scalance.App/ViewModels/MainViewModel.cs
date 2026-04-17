@@ -18,6 +18,7 @@ public sealed partial class MainViewModel : ObservableObject
     public DiscoveryViewModel Discovery { get; }
     public BasicWizardViewModel BasicWizard { get; }
     public BulkOpsViewModel BulkOps { get; }
+    public SyslogEditorViewModel Syslog { get; }
     public DeviceSelection Selection { get; }
     public OperationLog Log { get; }
 
@@ -39,6 +40,7 @@ public sealed partial class MainViewModel : ObservableObject
         DiscoveryViewModel discovery,
         BasicWizardViewModel basicWizard,
         BulkOpsViewModel bulkOps,
+        SyslogEditorViewModel syslog,
         DeviceSelection selection,
         DeviceOperationsService ops,
         OperationLog log)
@@ -55,6 +57,7 @@ public sealed partial class MainViewModel : ObservableObject
         Discovery = discovery;
         BasicWizard = basicWizard;
         BulkOps = bulkOps;
+        Syslog = syslog;
         Selection = selection;
         Log = log;
         dryRun = ops.DryRun;

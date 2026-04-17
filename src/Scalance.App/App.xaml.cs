@@ -42,6 +42,7 @@ public partial class App : Application
         services.AddSingleton<DiscoveryViewModel>();
         services.AddSingleton<BasicWizardViewModel>();
         services.AddSingleton<BulkOpsViewModel>();
+        services.AddSingleton<SyslogEditorViewModel>();
         services.AddTransient<DeviceEditorViewModel>();
         services.AddTransient<MainViewModel>();
         services.AddTransient<MainWindow>();

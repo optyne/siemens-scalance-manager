@@ -1,0 +1,63 @@
+<UserControl x:Class="Scalance.App.Views.SyslogEditorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="0">
+            <TextBlock Text="設備：" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding SelectedDeviceName, FallbackValue=(無)}"
+                       FontWeight="Bold" VerticalAlignment="Center"/>
+            <Separator Width="16"/>
+            <Button Content="套用" Command="{Binding ApplyCommand}" Padding="12,2"/>
+        </StackPanel>
+
+        <TextBlock Grid.Row="1" Margin="0,8,0,0" Opacity="0.7"
+                   Text="對應手冊 sec 13.2.2.1 p. 824：syslogserver { ipv4 | fqdn-name | ipv6 } [port(1-65535)] [tls]"/>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="2" Margin="0,8">
+            <TextBlock Text="主機：" VerticalAlignment="Center"/>
+            <TextBox Text="{Binding NewHost, UpdateSourceTrigger=PropertyChanged}" Width="220"/>
+            <TextBlock Text="Port：" Margin="12,0,4,0" VerticalAlignment="Center"/>
+            <TextBox Text="{Binding NewPort, UpdateSourceTrigger=PropertyChanged}" Width="70"
+                     ToolTip="留空 = 預設 514"/>
+            <CheckBox Content="TLS" IsChecked="{Binding NewUseTls}" Margin="12,0,0,0" VerticalAlignment="Center"/>
+            <Button Content="新增" Command="{Binding AddCommand}" Margin="12,0,0,0" Padding="10,2"/>
+        </StackPanel>
+
+        <DataGrid Grid.Row="3" Margin="0,8"
+                  ItemsSource="{Binding Servers}"
+                  AutoGenerateColumns="False"
+                  HeadersVisibility="Column" CanUserAddRows="False">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="主機" Binding="{Binding Host}" Width="*"/>
+                <DataGridTextColumn Header="Port" Binding="{Binding Port, TargetNullValue=514}" Width="70"/>
+                <DataGridCheckBoxColumn Header="TLS" Binding="{Binding UseTls}" Width="60"/>
+                <DataGridTextColumn Header="狀態" Binding="{Binding StateDisplay}" Width="90" IsReadOnly="True"/>
+                <DataGridTemplateColumn Header="" Width="80">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="移除"
+                                    Command="{Binding DataContext.RemoveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <ProgressBar Grid.Row="4" Height="4" IsIndeterminate="{Binding IsBusy}" Margin="0,4"/>
+        <StatusBar Grid.Row="5">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}"/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</UserControl>
