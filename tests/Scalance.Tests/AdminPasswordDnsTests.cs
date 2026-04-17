@@ -10,7 +10,7 @@ public class AdminPasswordDnsTests
     public void BuildChangeOwnPassword_emits_single_EXEC_mode_command()
     {
         // Verified S615 CLI manual sec 12.1.2 p. 567: `change password <pwd>`
-        // runs in User/Privileged EXEC mode; no configure terminal, no write memory.
+        // runs in User/Privileged EXEC mode; no configure terminal, no write startup-config.
         var cmds = ScalanceCliCommands.BuildChangeOwnPassword("s3cret!");
         cmds.Should().ContainSingle();
         cmds[0].Should().Be("change password s3cret!");
@@ -25,7 +25,7 @@ public class AdminPasswordDnsTests
         cmds[0].Should().Be("configure terminal");
         cmds.Should().Contain("user-account operator password Pa55w0rd! role admin");
         cmds.Should().Contain("end");
-        cmds[^1].Should().Be("write memory");
+        cmds[^1].Should().Be("write startup-config");
     }
 
     [Fact]
@@ -107,7 +107,7 @@ public class AdminPasswordDnsTests
         cmds[0].Should().Be("configure terminal");
         cmds.Should().Contain("events");
         cmds.Should().Contain("syslogserver ipv4 10.0.0.5");
-        cmds[^1].Should().Be("write memory");
+        cmds[^1].Should().Be("write startup-config");
     }
 
     [Fact]
@@ -194,7 +194,7 @@ public class AdminPasswordDnsTests
         cmds.Should().Contain("ip domain name example.com");
         // Verified: `no manual all` clears previous — manual sec 9.7.3.2 p. 415.
         cmds.Should().Contain("no manual all");
-        cmds[^1].Should().Be("write memory");
+        cmds[^1].Should().Be("write startup-config");
     }
 
     [Fact]

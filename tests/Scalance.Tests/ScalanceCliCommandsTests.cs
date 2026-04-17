@@ -17,7 +17,7 @@ public class ScalanceCliCommandsTests
         var cmds = ScalanceCliCommands.BuildSetVlans(vlans);
 
         cmds.First().Should().Be("configure terminal");
-        cmds.Last().Should().Be("write memory");
+        cmds.Last().Should().Be("write startup-config");
         cmds.Should().Contain("end");
         // S615 CLI manual p. 242: must be in dot1q-vlan mode before vlan commands.
         cmds.Should().Contain("base bridge-mode dot1q-vlan");
@@ -111,7 +111,7 @@ public class ScalanceCliCommandsTests
 
         cmds.Should().Contain("interface vlan1");
         cmds.Should().Contain("ip address dhcp");
-        cmds.Last().Should().Be("write memory");
+        cmds.Last().Should().Be("write startup-config");
     }
 
     [Fact]
@@ -239,7 +239,7 @@ public class ScalanceCliCommandsTests
         cmds.Should().Contain("authentication");
         cmds.Should().Contain("auth psk supersecret");
         cmds.Should().Contain("no shutdown");
-        cmds.Last().Should().Be("write memory");
+        cmds.Last().Should().Be("write startup-config");
     }
 
     [Fact]
@@ -400,7 +400,7 @@ public class ScalanceCliCommandsTests
         var cmds = ScalanceCliCommands.BuildDeleteAllFirewallRules();
         cmds.Should().Contain("no ipv4rule all");
         cmds[0].Should().Be("configure terminal");
-        cmds[^1].Should().Be("write memory");
+        cmds[^1].Should().Be("write startup-config");
     }
 
     [Fact]
@@ -676,7 +676,7 @@ weekly      15 KB
         cmds.Should().Contain("system name edge-router-01");
         cmds.Should().NotContain(c => c.StartsWith("hostname "));
         cmds[0].Should().Be("configure terminal");
-        cmds[^1].Should().Be("write memory");
+        cmds[^1].Should().Be("write startup-config");
     }
 
     [Fact]

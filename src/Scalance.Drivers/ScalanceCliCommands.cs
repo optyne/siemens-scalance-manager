@@ -121,7 +121,7 @@ public static class ScalanceCliCommands
         }
 
         cmds.Add("end");
-        cmds.Add("write memory");
+        cmds.Add("write startup-config");
         return cmds;
     }
 
@@ -230,7 +230,7 @@ public static class ScalanceCliCommands
         }
 
         cmds.Add("end");
-        cmds.Add("write memory");
+        cmds.Add("write startup-config");
         return cmds;
     }
 
@@ -449,7 +449,7 @@ public static class ScalanceCliCommands
 
         cmds.Add("exit"); // back to cli(config)#
         cmds.Add("end");
-        cmds.Add("write memory");
+        cmds.Add("write startup-config");
         return cmds;
     }
 
@@ -529,7 +529,7 @@ public static class ScalanceCliCommands
             "firewall",
             cmd,
             "end",
-            "write memory",
+            "write startup-config",
         };
     }
 
@@ -549,7 +549,7 @@ public static class ScalanceCliCommands
             "firewall",
             $"no ipv4rule idx {index}",
             "end",
-            "write memory",
+            "write startup-config",
         };
     }
 
@@ -565,7 +565,7 @@ public static class ScalanceCliCommands
             "firewall",
             "no ipv4rule all",
             "end",
-            "write memory",
+            "write startup-config",
         };
     }
 
@@ -603,7 +603,7 @@ public static class ScalanceCliCommands
             // External = untrusted side (vlan 2); toggle based on ExternalAccess.
             $"prerule {name} ipv4 int vlan 2 {(svc.ExternalAccess ? "enabled" : "disabled")}",
             "end",
-            "write memory",
+            "write startup-config",
         };
         return cmds;
     }
@@ -943,7 +943,7 @@ public static class ScalanceCliCommands
     //   - `change password <pwd>`  — User/Privileged EXEC (cli> / cli#).
     //       Changes the password of the currently logged-in user. No
     //       `configure terminal` needed; Trial mode saves immediately so no
-    //       `write memory` either. Manual sec 12.1.2 p. 567.
+    //       `write startup-config` either. Manual sec 12.1.2 p. 567.
     //   - `user-account <name> password <pwd> role <role>` — Global config.
     //       Creates OR updates another user. Role is REQUIRED. Cannot target
     //       the currently-logged-in user (the manual forbids it: "logged in
@@ -981,7 +981,7 @@ public static class ScalanceCliCommands
             "configure terminal",
             $"user-account {username} password {newPassword} role {role}",
             "end",
-            "write memory"
+            "write startup-config"
         };
     }
 
@@ -1044,7 +1044,7 @@ public static class ScalanceCliCommands
             "configure terminal",
             enabled ? "snmpagent" : "no snmpagent",
             "end",
-            "write memory",
+            "write startup-config",
         };
     }
 
@@ -1067,7 +1067,7 @@ public static class ScalanceCliCommands
             "configure terminal",
             $"snmp agent version {keyword}",
             "end",
-            "write memory",
+            "write startup-config",
         };
     }
 
@@ -1086,7 +1086,7 @@ public static class ScalanceCliCommands
             "configure terminal",
             $"snmpagent port {port}",
             "end",
-            "write memory",
+            "write startup-config",
         };
     }
 
@@ -1325,7 +1325,7 @@ public static class ScalanceCliCommands
             "events",  // enter EVENTS config mode (manual sec 13.1.9.1 p. 811)
             line,
             "end",
-            "write memory",
+            "write startup-config",
         };
     }
 
@@ -1343,7 +1343,7 @@ public static class ScalanceCliCommands
             "events",
             "no syslogserver " + FormatSyslogHostClause(s.Host),
             "end",
-            "write memory",
+            "write startup-config",
         };
     }
 
@@ -1384,7 +1384,7 @@ public static class ScalanceCliCommands
     ///   - ipv4 value must be a valid dotted-quad; short BSD forms are rejected.
     ///   - fqdn max 100 characters; CR/LF/space/quote rejected for SSH safety.
     /// The caller is responsible for wrapping with `configure terminal` / `ntp`
-    /// / `end` / `write memory`.
+    /// / `end` / `write startup-config`.
     /// </summary>
     public static string FormatNtpServerLine(int id, string host)
     {
@@ -1442,7 +1442,7 @@ public static class ScalanceCliCommands
             "configure terminal",
             $"system name {name}",
             "end",
-            "write memory",
+            "write startup-config",
         };
     }
 
@@ -1499,7 +1499,7 @@ public static class ScalanceCliCommands
             cmds.Add($"ip domain name {cfg.DomainName}");
 
         cmds.Add("end");
-        cmds.Add("write memory");
+        cmds.Add("write startup-config");
         return cmds;
     }
 

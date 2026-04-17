@@ -64,7 +64,7 @@ time you verify a command against a real device.
 | `base bridge-mode dot1q-vlan` prerequisite emitted by `BuildSetVlans` | PH_SCALANCE-S615-CLI_76 p. 242 | Idempotent — sending it when already in dot1q-vlan mode is a no-op. Now emitted before any `vlan <id>` so VLAN commands cannot be rejected for being in dot1d-bridge mode. |
 | DNS uses `dnsclient` mode + `manual srv <ip>` | PH_SCALANCE-S615-CLI_76 sec 9.7, pp. 408-417 (mode entries: `dnsclient` p. 411, `server type` p. 415, `manual srv` p. 414, `no shutdown` p. 417) | `BuildSetInterface` now emits the dnsclient block instead of the (incorrect) Cisco-style `ip name-server`. |
 | `configure terminal` / `end` / `exit` mode navigation | PH_SCALANCE-S615-CLI_76 pp. 241, 262, 697 | Confirmed: `configure terminal` enters global config; `end` returns to privileged EXEC; `exit` goes up one level. |
-| `write memory` to save configuration | PH_SCALANCE-S615-CLI_76 (confirmed via mode docs) | Standard save command. |
+| `write startup-config` to save configuration | PH_SCALANCE-S615-CLI_76 sec 5.4.2 p. 137 | **Verified + fixed 2026-04**。先前 builders 都發 `write memory`（Cisco-IOS 慣用語），但 S615 手冊**完全沒有**定義這個縮寫；唯一記錄的儲存指令是 `write startup-config`。全部 builders（含 NTP forceExecute 路徑）已全面改用 manual-verified 形式。|
 | `show firewall ip-rules ipv4` | PH_SCALANCE-S615-CLI_76 pp. 591–646 | Read command for IPv4 firewall rules. Output parsing is best-effort until validated on real device. |
 | `show firewall pre-rules ipv4` | PH_SCALANCE-S615-CLI_76 pp. 591–646 | Read command for predefined firewall service rules. Output parsing is best-effort. |
 | `ipv4rule from <if> to <if> srcip <cidr> dstip <cidr> action <acc\|drop\|rej> [service <svc>] [log <level>] [prior <n>]` | PH_SCALANCE-S615-CLI_76 pp. 591–646 | Create IPv4 firewall rule. Gated by DryRun. |
@@ -101,7 +101,7 @@ inferred items are limited to output parsing and edge cases.
 
 | Item | Source | Status |
 |------|--------|--------|
-| `change password <pwd>` (User/Privileged EXEC, 改自己的密碼) | PH_SCALANCE-S615-CLI_76 sec 12.1.2 p. 567 | **Verified by manual**。`BuildChangeOwnPassword` 產生；不需 `configure terminal` / `write memory`（Trial mode 立即儲存）。|
+| `change password <pwd>` (User/Privileged EXEC, 改自己的密碼) | PH_SCALANCE-S615-CLI_76 sec 12.1.2 p. 567 | **Verified by manual**。`BuildChangeOwnPassword` 產生；不需 `configure terminal` / `write startup-config`（Trial mode 立即儲存）。|
 | `user-account <name> password <pwd> role <role>` (global config, 改別人密碼) | PH_SCALANCE-S615-CLI_76 sec 12.1.4.7 p. 575 | **Verified by manual**。`BuildSetUserAccount` 產生；`role` 為必要參數。手冊明確規定：**無法修改當前已登入的使用者**，必須用 `change password`。|
 | 密碼字元限制：不可含 `§ ? " ; : ß \` 空白 Delete | S615 CLI manual p. 576 | **Re-verified 2026-04 via pypdf**。先前版本誤把 `ß`（U+00DF, sharp-s）抄成 `` ` ``（backtick），導致程式錯誤地允許 `ß`（裝置會拒絕）並禁止 `` ` ``（裝置允許）。`ValidatePassword` 已修正。CR/LF/`"` 於 builder 層額外擋，以防 SSH 行級注入。|
 | `system name <name>` (不是 `hostname`) | PH_SCALANCE-S615-CLI_76 sec 5.1.11.12 p. 98 | **Verified by manual**。`ApplyBasicWizardAsync` 已改用此指令。|

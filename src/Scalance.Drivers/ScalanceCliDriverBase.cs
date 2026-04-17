@@ -153,7 +153,7 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
             cmds.Add("exit"); // back to cli(config)#
 
             cmds.Add("end");
-            cmds.Add("write memory");
+            cmds.Add("write startup-config");
             // NTP syntax is validated against the CLI manual — bypass DryRun.
             return await RunOrPlanAsync(cmds, ct, forceExecute: true);
         }
