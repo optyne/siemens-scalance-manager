@@ -1213,13 +1213,56 @@ public static class ScalanceCliCommands
         if (string.IsNullOrWhiteSpace(host))
             throw new ArgumentException("ping host required", nameof(host));
 
-        // Distinguish IPv4 vs FQDN — same rules as NTP (strict dotted-quad,
-        // FQDN ≤ 100 chars, SSH-safe).
+        // Validate option ranges once — both the IPv4 form (sec 5.1.8 p. 86)
+        // and the IPv6 form (sec 5.1.9 p. 87) share the same numeric bounds.
+        int? sz = null, cnt = null, to = null;
+        if (opts is not null)
+        {
+            if (opts.SizeBytes is int s)
+            {
+                if (s < 0 || s > 2080)
+                    throw new ArgumentOutOfRangeException(nameof(opts),
+                        $"ping size {s} 超出範圍 0-2080（manual p. 86-87）。");
+                sz = s;
+            }
+            if (opts.Count is int c)
+            {
+                if (c < 1 || c > 10)
+                    throw new ArgumentOutOfRangeException(nameof(opts),
+                        $"ping count {c} 超出範圍 1-10（manual p. 86-87）。");
+                cnt = c;
+            }
+            if (opts.TimeoutSeconds is int t)
+            {
+                if (t < 1 || t > 100)
+                    throw new ArgumentOutOfRangeException(nameof(opts),
+                        $"ping timeout {t} 超出範圍 1-100（manual p. 86-87）。");
+                to = t;
+            }
+        }
+
+        // IPv6 literal → distinct `ping ipv6 <addr>` command (sec 5.1.9 p. 87).
+        // The IPv4 `ping` form on p. 86 does NOT accept IPv6 hosts or an
+        // `ipv6` keyword; mixing them caused 2001:db8::1 to wrongly be sent
+        // as `ping fqdn-name 2001:db8::1` which the device rejects.
+        if (System.Net.IPAddress.TryParse(host, out var parsed)
+            && parsed.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+        {
+            // Manual p. 87 option order: count, size, [anycast], [source], timeout.
+            var ipv6 = $"ping ipv6 {host}";
+            if (cnt is int c6) ipv6 += $" count {c6}";
+            if (sz  is int s6) ipv6 += $" size {s6}";
+            if (to  is int t6) ipv6 += $" timeout {t6}";
+            return ipv6;
+        }
+
+        // Distinguish IPv4 dotted-quad vs FQDN — same strict-four-octet rule
+        // used elsewhere in this file; `1.2.3` must go to the FQDN branch.
         string hostClause;
         var parts = host.Split('.');
         if (parts.Length == 4
-            && System.Net.IPAddress.TryParse(host, out var ip)
-            && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+            && System.Net.IPAddress.TryParse(host, out var ip4)
+            && ip4.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
         {
             hostClause = host;
         }
@@ -1235,31 +1278,11 @@ public static class ScalanceCliCommands
             hostClause = $"fqdn-name {host}";
         }
 
+        // Manual p. 86 option order: size, count, timeout.
         var line = $"ping {hostClause}";
-        if (opts is not null)
-        {
-            if (opts.SizeBytes is int sz)
-            {
-                if (sz < 0 || sz > 2080)
-                    throw new ArgumentOutOfRangeException(nameof(opts),
-                        $"ping size {sz} 超出範圍 0-2080（manual p. 86）。");
-                line += $" size {sz}";
-            }
-            if (opts.Count is int cnt)
-            {
-                if (cnt < 1 || cnt > 10)
-                    throw new ArgumentOutOfRangeException(nameof(opts),
-                        $"ping count {cnt} 超出範圍 1-10（manual p. 86）。");
-                line += $" count {cnt}";
-            }
-            if (opts.TimeoutSeconds is int to)
-            {
-                if (to < 1 || to > 100)
-                    throw new ArgumentOutOfRangeException(nameof(opts),
-                        $"ping timeout {to} 超出範圍 1-100（manual p. 86）。");
-                line += $" timeout {to}";
-            }
-        }
+        if (sz  is int s4) line += $" size {s4}";
+        if (cnt is int c4) line += $" count {c4}";
+        if (to  is int t4) line += $" timeout {t4}";
         return line;
     }
 

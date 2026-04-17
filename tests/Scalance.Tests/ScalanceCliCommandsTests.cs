@@ -470,7 +470,28 @@ public class ScalanceCliCommandsTests
     {
         var line = ScalanceCliCommands.FormatPingCommand("10.0.0.1",
             new PingOptions { SizeBytes = 100, Count = 5, TimeoutSeconds = 2 });
+        // Manual p. 86 option order: size, count, timeout.
         line.Should().Be("ping 10.0.0.1 size 100 count 5 timeout 2");
+    }
+
+    [Fact]
+    public void FormatPingCommand_ipv6_routes_to_ipv6_command()
+    {
+        // Manual sec 5.1.9 p. 87: IPv6 has a separate `ping ipv6 <addr>`
+        // command. Previously our builder sent `ping fqdn-name 2001:db8::1`
+        // for IPv6 literals, which the device rejects outright.
+        ScalanceCliCommands.FormatPingCommand("2001:db8::1")
+            .Should().Be("ping ipv6 2001:db8::1");
+    }
+
+    [Fact]
+    public void FormatPingCommand_ipv6_uses_count_before_size_per_manual()
+    {
+        // Manual p. 87 shows the IPv6 option order as count, size, …, timeout
+        // — distinct from the IPv4 p. 86 order (size, count, timeout).
+        var line = ScalanceCliCommands.FormatPingCommand("::1",
+            new PingOptions { SizeBytes = 100, Count = 5, TimeoutSeconds = 2 });
+        line.Should().Be("ping ipv6 ::1 count 5 size 100 timeout 2");
     }
 
     [Theory]
