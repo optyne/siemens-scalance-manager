@@ -428,8 +428,14 @@ public static class ScalanceCliCommands
 
         cmds.Add("exit"); // back to cli(config-ipsec)#
 
-        // Enable/disable IPsec globally (p. 709-710)
-        cmds.Add(t.Enabled ? "no shutdown" : "shutdown");
+        // Ensure the IPsec subsystem is globally enabled so this tunnel can
+        // run. Manual sec 12.4.3.18-19 pp. 709-710: `shutdown` / `no shutdown`
+        // affects the ENTIRE IPsec method — not a single connection — so we
+        // must never emit `shutdown` in a per-tunnel flow (that would kill
+        // every other tunnel). Per-tunnel enable/disable is already handled
+        // by the `operation start` / `operation disabled` lines above.
+        // `no shutdown` is idempotent when IPsec is already enabled.
+        cmds.Add("no shutdown");
 
         cmds.Add("exit"); // back to cli(config)#
         cmds.Add("end");

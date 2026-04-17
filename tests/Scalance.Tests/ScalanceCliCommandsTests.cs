@@ -211,7 +211,7 @@ public class ScalanceCliCommandsTests
     }
 
     [Fact]
-    public void BuildSetVpnTunnel_disabled_emits_shutdown()
+    public void BuildSetVpnTunnel_disabled_uses_operation_only_not_global_shutdown()
     {
         var t = new VpnTunnel
         {
@@ -224,9 +224,13 @@ public class ScalanceCliCommandsTests
         };
         var cmds = ScalanceCliCommands.BuildSetVpnTunnel(t);
 
-        // Real S615 syntax: disabled VPN uses "operation disabled" + "shutdown"
+        // Manual sec 12.4.3.18 p. 710: `shutdown` disables the WHOLE IPsec
+        // subsystem — emitting it in a per-tunnel flow would kill every
+        // other active tunnel. Per-tunnel disable must use `operation
+        // disabled` only; `no shutdown` stays as the idempotent global-on.
         cmds.Should().Contain("operation disabled");
-        cmds.Should().Contain("shutdown");
+        cmds.Should().Contain("no shutdown");
+        cmds.Should().NotContain("shutdown"); // fluent .NotContain is exact match
     }
 
     [Fact]
