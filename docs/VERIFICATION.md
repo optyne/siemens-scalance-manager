@@ -116,6 +116,10 @@ inferred items are limited to output parsing and edge cases.
 | `ip address <ip> <mask>` / `ip address dhcp` | PH_SCALANCE-S615-CLI_76 sec 9.1.3.2/3.3 p. 338-340 | **Verified by manual**。interface config 模式（VLAN 或 router port）。|
 | `ntp server id <1-3> { ipv4 <ip> \| fqdn-name <FQDN> \| ipv6 <ipv6> }` | PH_SCALANCE-S615-CLI_76 sec 7.2.3.1 p. 217 | **Verified by manual**。最多 3 台；`poll` 範圍 64-2592000 秒。|
 | `ntp time diff +HH:MM`（非 `clock timezone`） | PH_SCALANCE-S615-CLI_76 sec 7.2.3.6 p. 221 | **Verified by manual**。於 NTP config 模式內使用；必須帶正負號、兩位數。先前用 `clock timezone` 是 Cisco 語法誤植，已修正並加入 `IsValidNtpTimeDiff` 格式驗證。|
+| IPsec `ipsec` → `connection name <name>` → `phase <1\|2>` 模式層 | PH_SCALANCE-S615-CLI_76 sec 12.4.2.1 p. 697 / 12.4.3.2 p. 699 / 12.4.5.5 p. 721 | **Re-verified 2026-04**。`BuildSetVpnTunnel` 已符合手冊。|
+| IPsec `authentication` 子模式 → `auth psk <key>` / `auth cacert <ca> localcert <local>` | PH_SCALANCE-S615-CLI_76 sec 12.4.6.1/6.2 p. 727-728 | **Re-verified 2026-04**。|
+| `k-proto {ikev1\|ikev2}` | PH_SCALANCE-S615-CLI_76 sec 12.4.5.2 p. 718 | **Re-verified 2026-04**。|
+| `show firewall ip-rules {ipv4\|ipv6\|any}` / `show firewall pre-rules [{ipv4\|ipv6}]` | PH_SCALANCE-S615-CLI_76 sec 12.3.2.5/6/7 p. 593-594 | **Re-verified 2026-04**。|
 
 ## Re-verification procedure
 
