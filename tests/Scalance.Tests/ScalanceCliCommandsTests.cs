@@ -291,6 +291,30 @@ public class ScalanceCliCommandsTests
     }
 
     [Fact]
+    public void BuildSetPredefinedRule_emits_full_manual_form()
+    {
+        // Manual sec 12.3.4.57 p. 653:
+        //   prerule <svc> ipv4 int vlan <N> enabled|disabled
+        var svc = new PredefinedFirewallService
+        {
+            ServiceName = "https",
+            LocalAccess = true,
+            ExternalAccess = false
+        };
+        var cmds = ScalanceCliCommands.BuildSetPredefinedRule(svc);
+        cmds.Should().Contain("prerule https ipv4 int vlan 1 enabled");
+        cmds.Should().Contain("prerule https ipv4 int vlan 2 disabled");
+    }
+
+    [Fact]
+    public void BuildSetPredefinedRule_rejects_unknown_service()
+    {
+        var svc = new PredefinedFirewallService { ServiceName = "madeup" };
+        var act = () => ScalanceCliCommands.BuildSetPredefinedRule(svc);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
     public void BuildCreateFirewallRule_rejects_prior_above_127()
     {
         var rule = new FirewallRule

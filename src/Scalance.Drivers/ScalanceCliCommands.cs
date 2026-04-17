@@ -428,23 +428,46 @@ public static class ScalanceCliCommands
     public static IReadOnlyList<string> BuildSetPredefinedRule(PredefinedFirewallService svc)
     {
         if (svc is null) throw new ArgumentNullException(nameof(svc));
+        if (string.IsNullOrWhiteSpace(svc.ServiceName))
+            throw new ArgumentException("ServiceName required", nameof(svc));
+
+        // Verified against S615 CLI manual sec 12.3.4.57-66 (pp. 653-663).
+        // Canonical form for every prerule variant:
+        //   prerule <svc> ipv4 {int <if-type> <if-index> | all-int} {enabled|disabled}
+        //
+        // Service keywords (lowercase, from manual TOC):
+        //   dcp, dhcp, dns, http, https, ipsec, ping, snmp, ssh, syslog,
+        //   systime, tcpevent, telnet, vrrp, openvpn, sinemarc.
+        //
+        // Interpretation of LocalAccess / ExternalAccess used here: by default
+        // S615 places the management VLAN on vlan 1 (trusted) and the WAN on
+        // vlan 2 (untrusted). These remain convention, not manual-mandated —
+        // but the emitted command form is now manual-verified regardless.
+        var name = svc.ServiceName.Trim().ToLowerInvariant();
+        if (!PredefinedRuleNames.Contains(name))
+            throw new ArgumentException(
+                $"'{svc.ServiceName}' 不是 S615 支援的 prerule 關鍵字（manual sec 12.3.4.47-66）。",
+                nameof(svc));
 
         var cmds = new List<string>
         {
             "configure terminal",
             "firewall",
+            // Local = trusted side (vlan 1); toggle state based on LocalAccess.
+            $"prerule {name} ipv4 int vlan 1 {(svc.LocalAccess ? "enabled" : "disabled")}",
+            // External = untrusted side (vlan 2); toggle based on ExternalAccess.
+            $"prerule {name} ipv4 int vlan 2 {(svc.ExternalAccess ? "enabled" : "disabled")}",
+            "end",
+            "write memory",
         };
-
-        // Local access = vlan 1, external access = vlan 2 (S615 defaults)
-        if (svc.LocalAccess)
-            cmds.Add($"prerule {svc.ServiceName.ToLowerInvariant()} vlan 1");
-        if (svc.ExternalAccess)
-            cmds.Add($"prerule {svc.ServiceName.ToLowerInvariant()} vlan 2");
-
-        cmds.Add("end");
-        cmds.Add("write memory");
         return cmds;
     }
+
+    private static readonly HashSet<string> PredefinedRuleNames = new(StringComparer.Ordinal)
+    {
+        "dcp","dhcp","dns","http","https","ipsec","ping","snmp","ssh",
+        "syslog","systime","tcpevent","telnet","vrrp","openvpn","sinemarc"
+    };
 
     // ---- firewall parsers ----
 
