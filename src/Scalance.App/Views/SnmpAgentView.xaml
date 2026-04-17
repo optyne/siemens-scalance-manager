@@ -44,6 +44,9 @@
                      Width="80" ToolTip="1024-65535；裝置預設 161（該值手冊已排除於可設定範圍）"/>
             <Button Content="套用" Command="{Binding ApplyPortCommand}"
                     Margin="8,0,0,0" Padding="14,2"/>
+            <Button Content="重設為 161" Command="{Binding ResetPortCommand}"
+                    Margin="6,0,0,0" Padding="10,2"
+                    ToolTip="no snmpagent port（手冊 sec 9.8.2.17 p. 452）"/>
         </StackPanel>
 
         <Rectangle Grid.Row="5"/>

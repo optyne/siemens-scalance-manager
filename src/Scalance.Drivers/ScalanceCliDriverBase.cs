@@ -231,6 +231,16 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
         catch (Exception ex) { return OperationResult.Fail($"SetSnmpAgentPort failed: {ex.Message}", ex); }
     }
 
+    public override async Task<OperationResult> ResetSnmpAgentPortAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var cmds = ScalanceCliCommands.BuildResetSnmpAgentPort();
+            return await RunOrPlanAsync(cmds, ct);
+        }
+        catch (Exception ex) { return OperationResult.Fail($"ResetSnmpAgentPort failed: {ex.Message}", ex); }
+    }
+
     // ---------- Named on-device configbackup (manual sec 5.4 pp. 136-142) ----------
 
     public override async Task<OperationResult<IReadOnlyList<string>>> ListConfigBackupsAsync(CancellationToken ct = default)

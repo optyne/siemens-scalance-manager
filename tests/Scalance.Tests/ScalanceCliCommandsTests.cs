@@ -552,6 +552,17 @@ public class ScalanceCliCommandsTests
             .Should().Contain("snmpagent port 8161");
     }
 
+    [Fact]
+    public void BuildResetSnmpAgentPort_emits_no_snmpagent_port()
+    {
+        // Manual sec 9.8.2.17 p. 452 — only way to restore the default 161,
+        // since BuildSetSnmpAgentPort's 1024-65535 range excludes it.
+        var cmds = ScalanceCliCommands.BuildResetSnmpAgentPort();
+        cmds.Should().Contain("no snmpagent port");
+        cmds[0].Should().Be("configure terminal");
+        cmds[^1].Should().Be("write startup-config");
+    }
+
     [Theory]
     [InlineData(1023)]
     [InlineData(65536)]

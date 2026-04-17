@@ -182,6 +182,8 @@ public abstract class SnmpDriverBase : IDeviceDriver
         => Task.FromResult(OperationResult.Fail("此設備不支援 snmp agent version 寫入（需要 SSH-CLI）。"));
     public virtual Task<OperationResult> SetSnmpAgentPortAsync(int port, CancellationToken ct = default)
         => Task.FromResult(OperationResult.Fail("此設備不支援 snmpagent port 寫入（需要 SSH-CLI）。"));
+    public virtual Task<OperationResult> ResetSnmpAgentPortAsync(CancellationToken ct = default)
+        => Task.FromResult(OperationResult.Fail("此設備不支援 snmpagent port 重設（需要 SSH-CLI）。"));
 
     public virtual Task<OperationResult> RestartAsync(RestartMode mode, CancellationToken ct = default)
         => Task.FromResult(OperationResult.Fail("此設備不支援 CLI restart（僅 SSH-CLI 裝置可用）。"));

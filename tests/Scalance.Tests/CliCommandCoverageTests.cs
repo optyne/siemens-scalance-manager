@@ -170,6 +170,7 @@ public class CliCommandCoverageTests
         foreach (var c in ScalanceCliCommands.BuildSetSnmpAgentEnabled(false)) yield return c;
         foreach (var c in ScalanceCliCommands.BuildSetSnmpAgentVersion(SnmpAgentVersionPolicy.V3Only)) yield return c;
         foreach (var c in ScalanceCliCommands.BuildSetSnmpAgentPort(8161)) yield return c;
+        foreach (var c in ScalanceCliCommands.BuildResetSnmpAgentPort()) yield return c;
 
         // Device restart (sec 5.3.1 p. 130-131)
         yield return ScalanceCliCommands.FormatRestartCommand(RestartMode.Current);

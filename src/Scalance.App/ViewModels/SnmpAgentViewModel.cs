@@ -90,6 +90,23 @@ public sealed partial class SnmpAgentViewModel : ObservableObject
     }
 
     [RelayCommand(CanExecute = nameof(CanUse))]
+    private async Task ResetPortAsync()
+    {
+        var d = _selection.Current; if (d is null) return;
+        IsBusy = true; StatusMessage = "重設 snmpagent port 為預設 161…";
+        try
+        {
+            await using var driver = await _ops.OpenAsync(d);
+            var r = await driver.ResetSnmpAgentPortAsync();
+            DryRunPreview.LogIfDryRun(driver, _log, "SNMP port reset");
+            if (r.Success) PortText = "161";
+            StatusMessage = r.Success ? "已重設為 161。" : $"失敗：{r.Message}";
+        }
+        catch (Exception ex) { StatusMessage = $"錯誤：{ex.Message}"; }
+        finally { IsBusy = false; }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanUse))]
     private async Task ApplyPortAsync()
     {
         var d = _selection.Current; if (d is null) return;
@@ -115,6 +132,7 @@ public sealed partial class SnmpAgentViewModel : ObservableObject
         ApplyEnabledCommand.NotifyCanExecuteChanged();
         ApplyVersionCommand.NotifyCanExecuteChanged();
         ApplyPortCommand.NotifyCanExecuteChanged();
+        ResetPortCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnIsBusyChanged(bool value) => NotifyAll();

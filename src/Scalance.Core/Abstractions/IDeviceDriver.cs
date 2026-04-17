@@ -63,6 +63,8 @@ public interface IDeviceDriver : IAsyncDisposable
     Task<OperationResult> SetSnmpAgentEnabledAsync(bool enabled, CancellationToken ct = default);
     Task<OperationResult> SetSnmpAgentVersionAsync(SnmpAgentVersionPolicy policy, CancellationToken ct = default);
     Task<OperationResult> SetSnmpAgentPortAsync(int port, CancellationToken ct = default);
+    /// <summary>Reset SNMP agent listen port to factory default 161 (`no snmpagent port`, manual p. 452).</summary>
+    Task<OperationResult> ResetSnmpAgentPortAsync(CancellationToken ct = default);
 
     // Device restart — PH_SCALANCE-S615-CLI_76 sec 5.3.1 p. 130-131.
     // Always respects DryRun; the SSH session is expected to die as the

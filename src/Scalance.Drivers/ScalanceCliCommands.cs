@@ -1075,6 +1075,8 @@ public static class ScalanceCliCommands
     /// Build CLI to set the SNMP agent port. Verified against
     /// PH_SCALANCE-S615-CLI_76 sec 9.8.2.16 p. 451-452:
     ///   snmpagent port &lt;port-number(1024-65535)&gt;     (default 161)
+    /// The manual-settable range explicitly excludes 161; to go back to the
+    /// default use <see cref="BuildResetSnmpAgentPort"/>.
     /// </summary>
     public static IReadOnlyList<string> BuildSetSnmpAgentPort(int port)
     {
@@ -1085,6 +1087,24 @@ public static class ScalanceCliCommands
         {
             "configure terminal",
             $"snmpagent port {port}",
+            "end",
+            "write startup-config",
+        };
+    }
+
+    /// <summary>
+    /// Build CLI to reset the SNMP agent port back to the factory default
+    /// (UDP 161). Verified against PH_SCALANCE-S615-CLI_76 sec 9.8.2.17 p. 452:
+    ///   no snmpagent port
+    /// Required because <see cref="BuildSetSnmpAgentPort"/> can't set 161 —
+    /// the manual's settable range is 1024-65535.
+    /// </summary>
+    public static IReadOnlyList<string> BuildResetSnmpAgentPort()
+    {
+        return new List<string>
+        {
+            "configure terminal",
+            "no snmpagent port",
             "end",
             "write startup-config",
         };
