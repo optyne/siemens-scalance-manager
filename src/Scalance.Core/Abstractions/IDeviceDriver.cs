@@ -46,6 +46,13 @@ public interface IDeviceDriver : IAsyncDisposable
 
     // Diagnostics: traceroute — PH_SCALANCE-S615-CLI_76 sec 5.1.10 p. 88.
     Task<OperationResult<string>> TraceRouteAsync(string host, CancellationToken ct = default);
+
+    // Named on-device configuration backups — PH_SCALANCE-S615-CLI_76 sec 5.4.3 pp. 140-142.
+    // Distinct from BackupConfigAsync which dumps `show running-config` as text.
+    Task<OperationResult<IReadOnlyList<string>>> ListConfigBackupsAsync(CancellationToken ct = default);
+    Task<OperationResult> CreateConfigBackupAsync(string name, CancellationToken ct = default);
+    Task<OperationResult> RestoreConfigBackupAsync(string name, CancellationToken ct = default);
+    Task<OperationResult> DeleteConfigBackupAsync(string name, CancellationToken ct = default);
 }
 
 public interface IDeviceDriverFactory

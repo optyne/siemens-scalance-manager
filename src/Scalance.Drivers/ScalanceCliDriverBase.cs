@@ -188,6 +188,57 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
         }
     }
 
+    // ---------- Named on-device configbackup (manual sec 5.4 pp. 136-142) ----------
+
+    public override async Task<OperationResult<IReadOnlyList<string>>> ListConfigBackupsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var ssh = await GetSshAsync(ct);
+            // Manual sec 5.4.1.2 p. 136.
+            var output = await ssh.RunAsync("show configbackup", ct);
+            return OperationResult<IReadOnlyList<string>>.Ok(
+                ScalanceCliCommands.ParseConfigBackupNames(output));
+        }
+        catch (Exception ex)
+        {
+            return OperationResult<IReadOnlyList<string>>.Fail($"ListConfigBackups failed: {ex.Message}", ex);
+        }
+    }
+
+    public override async Task<OperationResult> CreateConfigBackupAsync(string name, CancellationToken ct = default)
+    {
+        try
+        {
+            var cmds = ScalanceCliCommands.BuildConfigBackupCreate(name);
+            return await RunOrPlanAsync(cmds, ct);
+        }
+        catch (ArgumentException ex) { return OperationResult.Fail(ex.Message, ex); }
+        catch (Exception ex) { return OperationResult.Fail($"CreateConfigBackup failed: {ex.Message}", ex); }
+    }
+
+    public override async Task<OperationResult> RestoreConfigBackupAsync(string name, CancellationToken ct = default)
+    {
+        try
+        {
+            var cmds = ScalanceCliCommands.BuildConfigBackupRestore(name);
+            return await RunOrPlanAsync(cmds, ct);
+        }
+        catch (ArgumentException ex) { return OperationResult.Fail(ex.Message, ex); }
+        catch (Exception ex) { return OperationResult.Fail($"RestoreConfigBackup failed: {ex.Message}", ex); }
+    }
+
+    public override async Task<OperationResult> DeleteConfigBackupAsync(string name, CancellationToken ct = default)
+    {
+        try
+        {
+            var cmds = ScalanceCliCommands.BuildConfigBackupDelete(name);
+            return await RunOrPlanAsync(cmds, ct);
+        }
+        catch (ArgumentException ex) { return OperationResult.Fail(ex.Message, ex); }
+        catch (Exception ex) { return OperationResult.Fail($"DeleteConfigBackup failed: {ex.Message}", ex); }
+    }
+
     // ---------- VLAN (read via Q-BRIDGE, write via CLI) ----------
 
     public override async Task<OperationResult<IReadOnlyList<Vlan>>> GetVlansAsync(CancellationToken ct = default)

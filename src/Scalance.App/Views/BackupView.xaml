@@ -1,0 +1,53 @@
+<UserControl x:Class="Scalance.App.Views.BackupView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="0">
+            <TextBlock Text="設備：" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding SelectedDeviceName, FallbackValue=(無)}"
+                       FontWeight="Bold" VerticalAlignment="Center"/>
+            <Separator Width="16"/>
+            <Button Content="載入清單" Command="{Binding LoadCommand}" Padding="12,2"/>
+        </StackPanel>
+
+        <TextBlock Grid.Row="1" Margin="0,8,0,0" Opacity="0.7"
+                   Text="對應手冊 sec 5.4.3 pp. 140-142：configbackup create / restore / delete &lt;name(64)&gt;"/>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="2" Margin="0,8">
+            <TextBlock Text="新備份名稱：" VerticalAlignment="Center"/>
+            <TextBox Text="{Binding NewBackupName, UpdateSourceTrigger=PropertyChanged}"
+                     Width="200" ToolTip="最長 64 字元，不可含空白"/>
+            <Button Content="建立" Command="{Binding CreateCommand}" Margin="12,0,0,0" Padding="14,2"/>
+        </StackPanel>
+
+        <ListBox Grid.Row="3" Margin="0,8"
+                 ItemsSource="{Binding Backups}"
+                 SelectedItem="{Binding SelectedBackup}"
+                 FontFamily="Consolas"/>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="4" Margin="0,4">
+            <Button Content="還原選取的備份" Command="{Binding RestoreCommand}" Padding="12,2"/>
+            <Button Content="刪除選取的備份" Command="{Binding DeleteCommand}" Margin="8,0,0,0" Padding="12,2"/>
+            <Separator Width="16"/>
+            <Button Content="匯出目前 running-config 為檔案"
+                    Command="{Binding ExportRunningConfigCommand}" Padding="12,2"/>
+        </StackPanel>
+
+        <ProgressBar Grid.Row="5" Height="4" IsIndeterminate="{Binding IsBusy}" Margin="0,4"/>
+        <StatusBar Grid.Row="6">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}"/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</UserControl>

@@ -55,6 +55,9 @@ public class CliCommandCoverageTests
 
         // System (sec 5.1.11.12 p. 98-99)
         "system",
+
+        // Config save/restore (sec 5.4.3 pp. 140-142)
+        "configbackup",
     };
 
     // "no <verb> ..." — when the first token is "no", validate the second token.
@@ -147,6 +150,11 @@ public class CliCommandCoverageTests
             new SyslogServer { Host = "10.0.0.5", Port = 6514, UseTls = true })) yield return c;
         foreach (var c in ScalanceCliCommands.BuildRemoveSyslogServer(
             new SyslogServer { Host = "10.0.0.5" })) yield return c;
+
+        // Config backup (sec 5.4.3 pp. 140-142)
+        foreach (var c in ScalanceCliCommands.BuildConfigBackupCreate("nightly")) yield return c;
+        foreach (var c in ScalanceCliCommands.BuildConfigBackupRestore("nightly")) yield return c;
+        foreach (var c in ScalanceCliCommands.BuildConfigBackupDelete("nightly")) yield return c;
     }
 
     [Fact]

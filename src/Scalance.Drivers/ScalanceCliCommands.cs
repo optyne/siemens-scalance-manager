@@ -1030,6 +1030,95 @@ public static class ScalanceCliCommands
         }
     }
 
+    // ---------- Configuration backup (manual sec 5.4.3 pp. 140-142) ----------
+
+    /// <summary>
+    /// Build CLI to create a named on-device configuration backup.
+    /// Verified against PH_SCALANCE-S615-CLI_76 sec 5.4.3.3 p. 140:
+    ///   configbackup create &lt;configbackup-name&gt;   (max 64 characters)
+    /// Entered from Global configuration mode.
+    /// </summary>
+    public static IReadOnlyList<string> BuildConfigBackupCreate(string name)
+    {
+        ValidateConfigBackupName(name);
+        return new List<string>
+        {
+            "configure terminal",
+            $"configbackup create {name}",
+            "end",
+        };
+    }
+
+    /// <summary>
+    /// Build CLI to restore a named on-device backup.
+    /// Verified against PH_SCALANCE-S615-CLI_76 sec 5.4.3.4 p. 140-141:
+    ///   configbackup restore &lt;configbackup-name&gt;
+    /// </summary>
+    public static IReadOnlyList<string> BuildConfigBackupRestore(string name)
+    {
+        ValidateConfigBackupName(name);
+        return new List<string>
+        {
+            "configure terminal",
+            $"configbackup restore {name}",
+            "end",
+        };
+    }
+
+    /// <summary>
+    /// Build CLI to delete a named on-device backup.
+    /// Verified against PH_SCALANCE-S615-CLI_76 sec 5.4.3.5 p. 141-142:
+    ///   configbackup delete &lt;configbackup-name&gt;
+    /// </summary>
+    public static IReadOnlyList<string> BuildConfigBackupDelete(string name)
+    {
+        ValidateConfigBackupName(name);
+        return new List<string>
+        {
+            "configure terminal",
+            $"configbackup delete {name}",
+            "end",
+        };
+    }
+
+    private static void ValidateConfigBackupName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("configbackup name required.", nameof(name));
+        if (name.Length > 64)
+            throw new ArgumentException(
+                $"configbackup name 長度 {name.Length} 超過 64 字元（S615 manual p. 140）。",
+                nameof(name));
+        // Single CLI token — any inner whitespace or quote breaks the argument.
+        RequireCliToken(name, "configbackup name");
+    }
+
+    /// <summary>
+    /// Parse the tabular output of `show configbackup` (manual sec 5.4.1.2 p. 136)
+    /// into a list of backup entry names. Output is best-effort since the manual
+    /// does not provide a sample; the first row is "Available memory" and other
+    /// rows list backup name + size. This extractor pulls the first whitespace-
+    /// delimited token of each non-header line that isn't "Available".
+    /// </summary>
+    public static IReadOnlyList<string> ParseConfigBackupNames(string output)
+    {
+        if (string.IsNullOrWhiteSpace(output)) return Array.Empty<string>();
+        var names = new List<string>();
+        foreach (var raw in output.Split('\n'))
+        {
+            var line = raw.Trim();
+            if (line.Length == 0) continue;
+            if (line.StartsWith("Available", StringComparison.OrdinalIgnoreCase)) continue;
+            if (line.Contains("---")) continue;
+            // Skip a likely header row like "Name   Size".
+            if (line.StartsWith("Name", StringComparison.OrdinalIgnoreCase)) continue;
+            var parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0) continue;
+            names.Add(parts[0]);
+        }
+        return names;
+    }
+
     // ---------- Diagnostics: ping ----------
 
     /// <summary>

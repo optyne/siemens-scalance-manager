@@ -494,6 +494,62 @@ public class ScalanceCliCommandsTests
         act.Should().Throw<ArgumentException>();
     }
 
+    // ---- configbackup (manual sec 5.4.3 pp. 140-142) ----
+
+    [Fact]
+    public void BuildConfigBackupCreate_emits_global_config_wrapper()
+    {
+        var cmds = ScalanceCliCommands.BuildConfigBackupCreate("nightly");
+        cmds[0].Should().Be("configure terminal");
+        cmds.Should().Contain("configbackup create nightly");
+        cmds[^1].Should().Be("end");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void BuildConfigBackupCreate_rejects_blank_name(string name)
+    {
+        var act = () => ScalanceCliCommands.BuildConfigBackupCreate(name);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void BuildConfigBackupCreate_rejects_name_over_64_chars()
+    {
+        var act = () => ScalanceCliCommands.BuildConfigBackupCreate(new string('x', 65));
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void BuildConfigBackupCreate_rejects_name_with_space()
+    {
+        var act = () => ScalanceCliCommands.BuildConfigBackupCreate("has space");
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void BuildConfigBackupRestore_and_Delete_use_correct_verb()
+    {
+        ScalanceCliCommands.BuildConfigBackupRestore("nightly")
+            .Should().Contain("configbackup restore nightly");
+        ScalanceCliCommands.BuildConfigBackupDelete("nightly")
+            .Should().Contain("configbackup delete nightly");
+    }
+
+    [Fact]
+    public void ParseConfigBackupNames_extracts_first_column_skipping_headers()
+    {
+        var output = @"Available memory: 2.4 MB
+Name        Size
+----        ----
+nightly     12 KB
+weekly      15 KB
+";
+        var names = ScalanceCliCommands.ParseConfigBackupNames(output);
+        names.Should().BeEquivalentTo(new[] { "nightly", "weekly" });
+    }
+
     // ---- traceroute (manual sec 5.1.10 p. 88) ----
 
     [Fact]

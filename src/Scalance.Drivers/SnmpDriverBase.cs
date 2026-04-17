@@ -164,6 +164,15 @@ public abstract class SnmpDriverBase : IDeviceDriver
     public virtual Task<OperationResult<string>> TraceRouteAsync(string host, CancellationToken ct = default)
         => Task.FromResult(OperationResult<string>.Fail("此設備不支援 CLI traceroute（僅 SSH-CLI 裝置可用）。"));
 
+    public virtual Task<OperationResult<IReadOnlyList<string>>> ListConfigBackupsAsync(CancellationToken ct = default)
+        => Task.FromResult(OperationResult<IReadOnlyList<string>>.Fail("此設備不支援 configbackup（僅 SSH-CLI 裝置可用）。"));
+    public virtual Task<OperationResult> CreateConfigBackupAsync(string name, CancellationToken ct = default)
+        => Task.FromResult(OperationResult.Fail("此設備不支援 configbackup（僅 SSH-CLI 裝置可用）。"));
+    public virtual Task<OperationResult> RestoreConfigBackupAsync(string name, CancellationToken ct = default)
+        => Task.FromResult(OperationResult.Fail("此設備不支援 configbackup（僅 SSH-CLI 裝置可用）。"));
+    public virtual Task<OperationResult> DeleteConfigBackupAsync(string name, CancellationToken ct = default)
+        => Task.FromResult(OperationResult.Fail("此設備不支援 configbackup（僅 SSH-CLI 裝置可用）。"));
+
     public virtual async ValueTask DisposeAsync()
     {
         if (Snmp is not null) await Snmp.DisposeAsync();

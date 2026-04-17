@@ -106,6 +106,9 @@
             <TabItem Header="診斷">
                 <views:DiagnosticsView DataContext="{Binding Diagnostics}"/>
             </TabItem>
+            <TabItem Header="備份">
+                <views:BackupView DataContext="{Binding Backup}"/>
+            </TabItem>
             <TabItem Header="Basic Wizard">
                 <views:BasicWizardView DataContext="{Binding BasicWizard}"/>
             </TabItem>
