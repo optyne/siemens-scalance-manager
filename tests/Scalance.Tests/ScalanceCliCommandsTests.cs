@@ -529,6 +529,26 @@ public class ScalanceCliCommandsTests
         act.Should().Throw<ArgumentException>();
     }
 
+    // ---- das blink (manual sec 5.5.2.5 p. 147) ----
+
+    [Fact]
+    public void BuildBlinkOwnLeds_wraps_config_and_emits_blink_timeout()
+    {
+        var cmds = ScalanceCliCommands.BuildBlinkOwnLeds(30);
+        cmds[0].Should().Be("configure terminal");
+        cmds.Should().Contain("das mac own blink timeout 30");
+        cmds[^1].Should().Be("end");
+    }
+
+    [Theory]
+    [InlineData(4)]
+    [InlineData(61)]
+    public void BuildBlinkOwnLeds_rejects_out_of_range(int seconds)
+    {
+        var act = () => ScalanceCliCommands.BuildBlinkOwnLeds(seconds);
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
     // ---- scheduled restart (manual sec 5.3.2.3-4 pp. 133-134) ----
 
     [Fact]

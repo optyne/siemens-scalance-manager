@@ -70,6 +70,9 @@ public class CliCommandCoverageTests
 
         // Scheduled restart (sec 5.3.2.3-4 pp. 133-134)
         "schedule", "cancel",
+
+        // DaS blink (sec 5.5.2.5 p. 147)
+        "das",
     };
 
     // "no <verb> ..." — when the first token is "no", validate the second token.
@@ -183,6 +186,9 @@ public class CliCommandCoverageTests
         // Scheduled restart (sec 5.3.2.3-4 pp. 133-134)
         foreach (var c in ScalanceCliCommands.BuildScheduleRestartTimer(600)) yield return c;
         foreach (var c in ScalanceCliCommands.BuildCancelRestartTimer()) yield return c;
+
+        // DaS blink (sec 5.5.2.5 p. 147)
+        foreach (var c in ScalanceCliCommands.BuildBlinkOwnLeds(10)) yield return c;
 
         // Event severity (sec 13.1.10.11 pp. 820-821)
         foreach (var c in ScalanceCliCommands.BuildSetEventSeverity(EventSink.Syslog, EventSeverity.Warning))

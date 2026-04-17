@@ -226,6 +226,17 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
         catch (Exception ex) { return OperationResult.Fail($"CancelScheduledRestart failed: {ex.Message}", ex); }
     }
 
+    public override async Task<OperationResult> BlinkOwnLedsAsync(int timeoutSeconds = 10, CancellationToken ct = default)
+    {
+        try
+        {
+            var cmds = ScalanceCliCommands.BuildBlinkOwnLeds(timeoutSeconds);
+            return await RunOrPlanAsync(cmds, ct);
+        }
+        catch (ArgumentOutOfRangeException ex) { return OperationResult.Fail(ex.Message, ex); }
+        catch (Exception ex) { return OperationResult.Fail($"BlinkOwnLeds failed: {ex.Message}", ex); }
+    }
+
     // ---------- SNMP agent controls (manual sec 9.8 pp. 437-452) ----------
 
     public override async Task<OperationResult> SetSnmpAgentEnabledAsync(bool enabled, CancellationToken ct = default)

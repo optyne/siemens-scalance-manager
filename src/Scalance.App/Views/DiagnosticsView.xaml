@@ -92,6 +92,18 @@
                             ToolTip="cancel restart-timer（手冊 sec 5.3.2.4 p. 134）"/>
                 </StackPanel>
             </Border>
+
+            <!-- Identify via LED blink — manual sec 5.5.2.5 p. 147 -->
+            <Border Margin="0,6,0,0" Padding="6" BorderBrush="#BDBDBD" BorderThickness="1" Background="#FAFAFA">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="LED 閃爍識別（秒，5-60）：" VerticalAlignment="Center"/>
+                    <TextBox Text="{Binding BlinkSecondsText, UpdateSourceTrigger=PropertyChanged}"
+                             Width="70" ToolTip="das mac own blink timeout &lt;sec&gt;（手冊 p. 147）"/>
+                    <Button Content="閃爍 LED" Command="{Binding BlinkLedsCommand}"
+                            Margin="8,0,0,0" Padding="10,2"
+                            ToolTip="讓目前所選設備的 LED 閃爍指定秒數，方便在機櫃中找到它"/>
+                </StackPanel>
+            </Border>
         </StackPanel>
 
         <TextBlock Grid.Row="5" Text="輸出：" Margin="0,8,0,2" FontWeight="Bold"/>

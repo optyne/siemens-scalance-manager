@@ -38,6 +38,9 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
     // Scheduled restart — manual p. 133-134. Range 300-86400 sec.
     [ObservableProperty] private string scheduleSecondsText = "600";
 
+    // Blink own LEDs — manual p. 147. Range 5-60 sec.
+    [ObservableProperty] private string blinkSecondsText = "10";
+
     // Output window (raw device response).
     [ObservableProperty] private string output = "";
 
@@ -72,6 +75,7 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
         RestartFactoryCommand.NotifyCanExecuteChanged();
         ScheduleRestartCommand.NotifyCanExecuteChanged();
         CancelScheduleCommand.NotifyCanExecuteChanged();
+        BlinkLedsCommand.NotifyCanExecuteChanged();
     }
 
     private bool CanPing()
@@ -191,6 +195,32 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
     }
 
     [RelayCommand(CanExecute = nameof(CanSchedule))]
+    private async Task BlinkLedsAsync()
+    {
+        var d = _selection.Current;
+        if (d is null) return;
+        if (!int.TryParse(BlinkSecondsText.Trim(), out var seconds)
+            || seconds < 5 || seconds > 60)
+        {
+            StatusMessage = "Blink 秒數需在 5-60 秒之間。";
+            return;
+        }
+        IsBusy = true;
+        StatusMessage = $"讓裝置 LED 閃爍 {seconds} 秒…";
+        try
+        {
+            await using var driver = await _ops.OpenAsync(d);
+            var r = await driver.BlinkOwnLedsAsync(seconds);
+            DryRunPreview.LogIfDryRun(driver, _log, "das mac own blink");
+            StatusMessage = r.Success
+                ? $"LED 閃爍指令已送出（約 {seconds} 秒）。"
+                : $"失敗：{r.Message}";
+        }
+        catch (Exception ex) { StatusMessage = $"錯誤：{ex.Message}"; }
+        finally { IsBusy = false; }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanSchedule))]
     private async Task CancelScheduleAsync()
     {
         var d = _selection.Current;
@@ -258,6 +288,7 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
         RestartFactoryCommand.NotifyCanExecuteChanged();
         ScheduleRestartCommand.NotifyCanExecuteChanged();
         CancelScheduleCommand.NotifyCanExecuteChanged();
+        BlinkLedsCommand.NotifyCanExecuteChanged();
     }
     partial void OnPingHostChanged(string value) => PingCommand.NotifyCanExecuteChanged();
     partial void OnTraceHostChanged(string value) => TraceRouteCommand.NotifyCanExecuteChanged();

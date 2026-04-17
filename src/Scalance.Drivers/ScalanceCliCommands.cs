@@ -1234,6 +1234,29 @@ public static class ScalanceCliCommands
         return names;
     }
 
+    // ---------- DCP Discovery and Set (manual sec 5.5 pp. 144-147) ----------
+
+    /// <summary>
+    /// Build CLI to blink the LEDs of the currently-connected SCALANCE device
+    /// (identify flow). Verified against PH_SCALANCE-S615-CLI_76 sec 5.5.2.5
+    /// p. 147:
+    ///   das mac own blink [timeout &lt;seconds(5-60)&gt;]
+    /// Entered from Global configuration mode. Blinking stops when the
+    /// timeout elapses (default 5 s on the device).
+    /// </summary>
+    public static IReadOnlyList<string> BuildBlinkOwnLeds(int timeoutSeconds = 10)
+    {
+        if (timeoutSeconds < 5 || timeoutSeconds > 60)
+            throw new ArgumentOutOfRangeException(nameof(timeoutSeconds),
+                $"das blink timeout {timeoutSeconds} 超出範圍 5-60 秒（manual p. 147）。");
+        return new List<string>
+        {
+            "configure terminal",
+            $"das mac own blink timeout {timeoutSeconds}",
+            "end",
+        };
+    }
+
     // ---------- Scheduled restart (manual sec 5.3.2.3-4 pp. 133-134) ----------
 
     /// <summary>

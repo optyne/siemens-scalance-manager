@@ -76,6 +76,10 @@ public interface IDeviceDriver : IAsyncDisposable
     // seconds range: 300 (5 min) to 86400 (24 h).
     Task<OperationResult> ScheduleRestartAsync(int seconds, CancellationToken ct = default);
     Task<OperationResult> CancelScheduledRestartAsync(CancellationToken ct = default);
+
+    // Identify via blinking LEDs — PH_SCALANCE-S615-CLI_76 sec 5.5.2.5 p. 147
+    // (`das mac own blink`). Useful for physically locating a device in a rack.
+    Task<OperationResult> BlinkOwnLedsAsync(int timeoutSeconds = 10, CancellationToken ct = default);
 }
 
 public interface IDeviceDriverFactory
