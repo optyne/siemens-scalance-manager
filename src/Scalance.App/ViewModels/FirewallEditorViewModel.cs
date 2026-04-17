@@ -92,8 +92,8 @@ public sealed partial class FirewallEditorViewModel : ObservableObject
             Index = nextIndex,
             Enabled = true,
             Action = FirewallAction.Accept,
-            FromInterface = "vlan1",
-            ToInterface = "vlan2",
+            FromInterface = "vlan 1",
+            ToInterface = "vlan 2",
             SourceCidr = "",
             DestinationCidr = "",
             Service = "All",
@@ -163,8 +163,8 @@ public sealed partial class FirewallRuleRow : ObservableObject
     [ObservableProperty] private int index;
     [ObservableProperty] private bool enabled = true;
     [ObservableProperty] private FirewallAction action = FirewallAction.Accept;
-    [ObservableProperty] private string fromInterface = "vlan1";
-    [ObservableProperty] private string toInterface = "vlan2";
+    [ObservableProperty] private string fromInterface = "vlan 1";
+    [ObservableProperty] private string toInterface = "vlan 2";
     [ObservableProperty] private string sourceCidr = "";
     [ObservableProperty] private string destinationCidr = "";
     [ObservableProperty] private string service = "All";

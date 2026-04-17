@@ -335,6 +335,20 @@ public class ScalanceCliCommandsTests
     }
 
     [Fact]
+    public void FirewallRule_default_uses_space_separated_iftype()
+    {
+        // Manual p. 627: `from <iftype> [<ifstring>]` — iftype and ifstring
+        // are separate tokens. Examples p. 65, 430 use `int vlan 1` with space.
+        // `vlan1` (no space) would be parsed as an unknown iftype.
+        var rule = new FirewallRule { Action = FirewallAction.Accept };
+        rule.From.Should().Be("vlan 1");
+        rule.To.Should().Be("vlan 2");
+
+        var cmds = ScalanceCliCommands.BuildCreateFirewallRule(rule);
+        cmds.Should().Contain(c => c.StartsWith("ipv4rule from vlan 1 to vlan 2 "));
+    }
+
+    [Fact]
     public void BuildCreateFirewallRule_rejects_blank_from_or_to()
     {
         // Manual p. 627: `from` / `to` require a valid iftype keyword. Empty

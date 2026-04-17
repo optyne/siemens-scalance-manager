@@ -23,7 +23,8 @@ public sealed partial class BasicWizardViewModel : ObservableObject
     [ObservableProperty] private string? statusMessage;
 
     [ObservableProperty] private string hostname = "";
-    [ObservableProperty] private string interfaceName = "vlan1";
+    // S615 CLI manual p. 65/430: `int vlan 1` with space; `vlan1` is rejected.
+    [ObservableProperty] private string interfaceName = "vlan 1";
     [ObservableProperty] private bool dhcpEnabled;
     [ObservableProperty] private string ipAddress = "";
     [ObservableProperty] private string subnetMask = "255.255.255.0";

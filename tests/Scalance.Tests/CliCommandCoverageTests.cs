@@ -124,7 +124,7 @@ public class CliCommandCoverageTests
         // Firewall: create + delete + predefined service
         var rule = new FirewallRule
         {
-            From = "vlan1", To = "vlan2",
+            From = "vlan 1", To = "vlan 2",
             SourceCidr = "10.0.0.0/24", DestinationCidr = "0.0.0.0/0",
             Action = FirewallAction.Accept, Service = "https",
             Log = true, Index = 1,
