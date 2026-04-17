@@ -220,6 +220,22 @@ public static class ScalanceCliCommands
     }
 
     /// <summary>
+    /// Require a string that can sit on a CLI line as a single whitespace-
+    /// delimited token. Rejects CR/LF/NUL (batched SSH stream safety),
+    /// double-quote (breaks quoted args), and inner space (would split
+    /// the token into two arguments on the device).
+    /// </summary>
+    internal static void RequireCliToken(string value, string paramName)
+    {
+        if (value is null) throw new ArgumentNullException(paramName);
+        foreach (var c in value)
+            if (c == '\r' || c == '\n' || c == '\0' || c == '"' || c == ' ')
+                throw new ArgumentException(
+                    $"{paramName} 含非法字元 '{c}' — 須為單一 CLI token（不可含空白、引號、換行）。",
+                    paramName);
+    }
+
+    /// <summary>
     /// Strict dotted-quad IPv4 check. Rejects the BSD short forms that
     /// <see cref="System.Net.IPAddress.TryParse"/> otherwise accepts
     /// (e.g. "1.2.3" → 1.2.0.3), which the SCALANCE CLI does not match.
@@ -279,6 +295,10 @@ public static class ScalanceCliCommands
             throw new ArgumentException($"Tunnel name '{t.Name}' 超過 122 字元（S615 manual p. 699）。", nameof(t));
         if (t.Name.Length + 7 > 128)
             throw new ArgumentException($"Tunnel name too long — '{t.Name}-remote' 會超過 remote-end 128 字元限制。", nameof(t));
+        // `connection name <name>` / `remote-end name <name>` use the rest of
+        // the line as a single token. A space/CR/LF/quote would split or break
+        // the batched command stream; reject early with a clear message.
+        RequireCliToken(t.Name, "Tunnel name");
 
         var cmds = new List<string>
         {
@@ -291,14 +311,22 @@ public static class ScalanceCliCommands
         // Create/enter remote end (p. 705)
         var remoteEndName = $"{t.Name}-remote";
         cmds.Add($"remote-end name {remoteEndName}");
-        // Set remote endpoint address (p. 711): addr <subnet|dns>
+        // Set remote endpoint address (p. 711): addr <subnet|dns>.
+        // Manual allows a CIDR (incl. 0.0.0.0/0) or DNS name — we don't parse
+        // the form but must prevent CR/LF/space/quote from breaking the batch.
         if (!string.IsNullOrEmpty(t.RemoteEndpoint))
+        {
+            RequireCliToken(t.RemoteEndpoint, "RemoteEndpoint");
             cmds.Add($"addr {t.RemoteEndpoint}");
+        }
         // Set connection mode (p. 713-714): conn-mode {roadwarrior|standard}
         cmds.Add("conn-mode standard");
         // Set remote subnet (p. 715): subnet <subnet>
         if (!string.IsNullOrEmpty(t.RemoteSubnet))
+        {
+            RequireCliToken(t.RemoteSubnet, "RemoteSubnet");
             cmds.Add($"subnet {t.RemoteSubnet}");
+        }
         cmds.Add("exit"); // back to cli(config-ipsec)#
 
         // Create/enter connection (p. 699)
@@ -309,7 +337,10 @@ public static class ScalanceCliCommands
 
         // Set local subnet (p. 719): loc-subnet <subnet>
         if (!string.IsNullOrEmpty(t.LocalSubnet))
+        {
+            RequireCliToken(t.LocalSubnet, "LocalSubnet");
             cmds.Add($"loc-subnet {t.LocalSubnet}");
+        }
 
         // Set IKE version (p. 718): k-proto {ikev1|ikev2}
         cmds.Add("k-proto ikev2");

@@ -566,6 +566,34 @@ public class ScalanceCliCommandsTests
         act.Should().Throw<ArgumentException>();
     }
 
+    [Theory]
+    [InlineData("name with space")]
+    [InlineData("name\ninject")]
+    [InlineData("name\"quote")]
+    public void BuildSetVpnTunnel_rejects_name_with_non_token_chars(string name)
+    {
+        var t = new VpnTunnel
+        {
+            Name = name, Enabled = true, RemoteEndpoint = "1.2.3.4",
+            AuthMode = VpnAuthMode.Psk, PreSharedKey = "k"
+        };
+        var act = () => ScalanceCliCommands.BuildSetVpnTunnel(t);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void BuildSetVpnTunnel_rejects_subnet_with_newline()
+    {
+        var t = new VpnTunnel
+        {
+            Name = "t", Enabled = true, RemoteEndpoint = "1.2.3.4",
+            LocalSubnet = "10.0.0.0/24\ninject",
+            AuthMode = VpnAuthMode.Psk, PreSharedKey = "k"
+        };
+        var act = () => ScalanceCliCommands.BuildSetVpnTunnel(t);
+        act.Should().Throw<ArgumentException>();
+    }
+
     [Fact]
     public void BuildSetVpnTunnel_rejects_name_over_122_chars()
     {
