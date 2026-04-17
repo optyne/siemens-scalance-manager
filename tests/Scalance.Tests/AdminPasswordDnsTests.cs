@@ -7,32 +7,54 @@ namespace Scalance.Tests;
 public class AdminPasswordDnsTests
 {
     [Fact]
-    public void BuildSetAdminPassword_wraps_with_configure_and_write()
+    public void BuildChangeOwnPassword_emits_single_EXEC_mode_command()
     {
-        var cmds = ScalanceCliCommands.BuildSetAdminPassword("admin", "s3cret!");
+        // Verified S615 CLI manual sec 12.1.2 p. 567: `change password <pwd>`
+        // runs in User/Privileged EXEC mode; no configure terminal, no write memory.
+        var cmds = ScalanceCliCommands.BuildChangeOwnPassword("s3cret!");
+        cmds.Should().ContainSingle();
+        cmds[0].Should().Be("change password s3cret!");
+    }
 
+    [Fact]
+    public void BuildSetUserAccount_wraps_config_and_requires_role()
+    {
+        // Verified S615 CLI manual sec 12.1.4.7 p. 575: global config,
+        // `user-account <name> password <pwd> role <role>`.
+        var cmds = ScalanceCliCommands.BuildSetUserAccount("operator", "Pa55w0rd!", "admin");
         cmds[0].Should().Be("configure terminal");
-        cmds.Should().Contain("username admin password s3cret!");
+        cmds.Should().Contain("user-account operator password Pa55w0rd! role admin");
         cmds.Should().Contain("end");
         cmds[^1].Should().Be("write memory");
+    }
+
+    [Fact]
+    public void BuildSetUserAccount_rejects_missing_role()
+    {
+        var act = () => ScalanceCliCommands.BuildSetUserAccount("u", "Pwd1234!", "");
+        act.Should().Throw<ArgumentException>();
     }
 
     [Theory]
     [InlineData("")]
     [InlineData("  ")]
-    public void BuildSetAdminPassword_rejects_blank_password(string pwd)
+    public void PasswordValidation_rejects_blank(string pwd)
     {
-        var act = () => ScalanceCliCommands.BuildSetAdminPassword("admin", pwd);
+        var act = () => ScalanceCliCommands.BuildChangeOwnPassword(pwd);
         act.Should().Throw<ArgumentException>();
     }
 
     [Theory]
-    [InlineData("line1\nline2")]
-    [InlineData("has\rcr")]
-    [InlineData("quoted \"thing\"")]
-    public void BuildSetAdminPassword_rejects_injection_chars(string pwd)
+    [InlineData("line1\nline2")]      // SSH line break — transport-layer defence
+    [InlineData("has\rcr")]           // CR — transport-layer defence
+    [InlineData("quoted \"thing\"")]  // quote — transport-layer defence
+    [InlineData("semi;colon")]        // S615 manual p. 576 disallowed
+    [InlineData("back\\slash")]       // S615 manual p. 576 disallowed
+    [InlineData("has space")]         // S615 manual p. 576 disallowed
+    [InlineData("qu?mark")]           // S615 manual p. 576 disallowed
+    public void PasswordValidation_rejects_disallowed_chars(string pwd)
     {
-        var act = () => ScalanceCliCommands.BuildSetAdminPassword("admin", pwd);
+        var act = () => ScalanceCliCommands.BuildChangeOwnPassword(pwd);
         act.Should().Throw<ArgumentException>();
     }
 
@@ -48,7 +70,10 @@ public class AdminPasswordDnsTests
         cmds.Should().Contain("manual srv 8.8.8.8");
         cmds.Should().Contain("manual srv 1.1.1.1");
         cmds.Should().Contain("no shutdown");
-        cmds.Should().Contain("ip domain-name example.com");
+        // Verified: `ip domain name <name>` (space, not hyphen) — manual p. 10741.
+        cmds.Should().Contain("ip domain name example.com");
+        // Verified: `no manual all` clears previous — manual sec 9.7.3.2 p. 415.
+        cmds.Should().Contain("no manual all");
         cmds[^1].Should().Be("write memory");
     }
 
@@ -78,9 +103,10 @@ public class AdminPasswordDnsTests
         r.Success.Should().BeTrue();
         // The aggregated preview should include commands from ALL three steps,
         // not just the last one (password).
-        driver.LastPlannedCommands.Should().Contain("hostname scalance-lab");
+        driver.LastPlannedCommands.Should().Contain("system name scalance-lab");
         driver.LastPlannedCommands.Should().Contain("manual srv 8.8.8.8");
-        driver.LastPlannedCommands.Should().Contain("username admin password new-p@ss");
+        // Driver not connected → _credential is null → falls back to user-account path.
+        driver.LastPlannedCommands.Should().Contain(c => c.StartsWith("user-account admin password new-p@ss role"));
     }
 
     [Fact]

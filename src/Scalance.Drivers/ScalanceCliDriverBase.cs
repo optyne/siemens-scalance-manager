@@ -727,7 +727,15 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
     {
         try
         {
-            var cmds = ScalanceCliCommands.BuildSetAdminPassword(username, newPassword);
+            // If we're changing the currently-logged-in user's password, we MUST
+            // use `change password <pwd>` — the `user-account` command cannot
+            // target the logged-in user (S615 CLI manual p. 576).
+            bool isSelf = !string.IsNullOrEmpty(_credential?.Username)
+                && string.Equals(_credential!.Username, username, StringComparison.OrdinalIgnoreCase);
+
+            var cmds = isSelf
+                ? ScalanceCliCommands.BuildChangeOwnPassword(newPassword)
+                : ScalanceCliCommands.BuildSetUserAccount(username, newPassword, "admin");
             return await RunOrPlanAsync(cmds, ct);
         }
         catch (Exception ex)
@@ -743,7 +751,8 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
         try
         {
             var ssh = await GetSshAsync(ct);
-            var output = await ssh.TryRunAsync("show dnsclient", TimeSpan.FromSeconds(5), ct) ?? "";
+            // Verified command: `show dnsclient information` — S615 CLI manual sec 9.7.1.1 p. 409.
+            var output = await ssh.TryRunAsync("show dnsclient information", TimeSpan.FromSeconds(5), ct) ?? "";
             return OperationResult<DnsConfig>.Ok(ScalanceCliCommands.ParseDnsClient(output));
         }
         catch (Exception ex)
@@ -782,7 +791,9 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
 
         if (!string.IsNullOrWhiteSpace(config.Hostname))
         {
-            var cmds = new[] { "configure terminal", $"hostname {config.Hostname}", "end", "write memory" };
+            // Verified: SCALANCE uses `system name <name>` — S615 CLI manual sec
+            // 5.1.11.12 p. 98. Cisco-style `hostname` would be rejected.
+            var cmds = new[] { "configure terminal", $"system name {config.Hostname}", "end", "write memory" };
             var r = await RunOrPlanAsync(cmds, ct);
             if (!r.Success) failures.Add($"hostname: {r.Message}");
         }

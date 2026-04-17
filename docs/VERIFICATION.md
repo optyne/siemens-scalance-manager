@@ -97,16 +97,19 @@ inferred items are limited to output parsing and edge cases.
 | Cipher value tokens (`aes256`, `sha256`, DH group `14`, …) for `ike-encryption` / `ike-auth` / `ike-keyderivation` / `esp-encryption` / `esp-auth` / `esp-keyderivation` | Tokens taken from the WBM dropdowns; the CLI command names are verified but the exact accepted operand strings live on the same pages as the commands and were not transcribed | Risk: device may reject e.g. `aes256` if it expects `aes-256`. `BuildSetVpnTunnel` passes the IkeSettings/EspSettings strings through verbatim — adjust either the model defaults or add a translator if a real device rejects them. |
 | VPN tunnel parser (`ParseVpnTunnels`) | Still parses legacy Cisco-style `crypto map` output format | Needs update to parse real S615 `show ipsec connections` output once a sample is available. |
 
-## Admin password / DNS / Basic Wizard (new, 2026-04)
+## Admin password / DNS / Basic Wizard (2026-04, 已對照 S615 CLI 手冊修正)
 
 | Item | Source | Status |
 |------|--------|--------|
-| `username <u> password <p>` | **Inferred** from Cisco-IOS convention | 尚未在實體 S615 驗證。`BuildSetAdminPassword` 產生此指令；DryRun 預設仍開啟。實體驗證前請勿關閉 DryRun。S615 韌體也可能使用 `user-account <u>` → `password <p>` 模式。|
-| `hostname <name>` | S615 CLI manual ch. "System" | 通用 Cisco-style 指令，S615 亦採用。標 Inferred 直到實機驗證。|
-| `dnsclient` → `server type manual` / `manual srv <ip>` / `no shutdown` | PH_SCALANCE-S615-CLI_76 sec 9.7, pp. 408-417 | **Verified by manual**。`BuildSetDns` 產生。Apply 前會先送 `no manual srv` 以清除舊設，若實機不接受此形式會被忽略。|
-| `ip domain-name <name>` | Cisco-IOS convention | Inferred — optional field。|
-| `show dnsclient` parsing | `ParseDnsClient` 容錯解析 `manual srv <ip>` 與 `Domain Name:` 行 | Inferred。若實機輸出格式不同，解析會回傳空的 DnsConfig 而非拋出。|
-| `ApplyBasicWizardAsync` 組合順序 | hostname → interface → dns → ntp → password | 設計決策 — 密碼最後才改，避免中途斷線；NTP 之所以排第四而非最後，是因為它 `forceExecute=true` 會跳過 DryRun，這順序能讓 DryRun 預覽包含除了 NTP 之外的所有規劃指令。|
+| `change password <pwd>` (User/Privileged EXEC, 改自己的密碼) | PH_SCALANCE-S615-CLI_76 sec 12.1.2 p. 567 | **Verified by manual**。`BuildChangeOwnPassword` 產生；不需 `configure terminal` / `write memory`（Trial mode 立即儲存）。|
+| `user-account <name> password <pwd> role <role>` (global config, 改別人密碼) | PH_SCALANCE-S615-CLI_76 sec 12.1.4.7 p. 575 | **Verified by manual**。`BuildSetUserAccount` 產生；`role` 為必要參數。手冊明確規定：**無法修改當前已登入的使用者**，必須用 `change password`。|
+| 密碼字元限制：不可含 `§ ? " ; : \` `` ` `` `\` 空白 Delete | S615 CLI manual p. 576 | `ValidatePassword` 於 builder 層拒絕；加上 CR/LF 防 SSH 行級注入。|
+| `system name <name>` (不是 `hostname`) | PH_SCALANCE-S615-CLI_76 sec 5.1.11.12 p. 98 | **Verified by manual**。`ApplyBasicWizardAsync` 已改用此指令。|
+| `dnsclient` → `server type manual` / `manual srv <ip>` / `no shutdown` | PH_SCALANCE-S615-CLI_76 sec 9.7, pp. 408-417 | **Verified by manual**。`BuildSetDns` 產生。|
+| `no manual all` 清除全部 DNS 伺服器 | PH_SCALANCE-S615-CLI_76 sec 9.7.3.2 p. 415 | **Verified by manual**。先前 `no manual srv`（無參數）無效，已修正。|
+| `ip domain name <name>` (空格，非連字號) | PH_SCALANCE-S615-CLI_76 p. 10741 交叉引用 | **Verified by manual**。先前 `ip domain-name` 錯誤，已修正。|
+| `show dnsclient information` (非 `show dnsclient`) | PH_SCALANCE-S615-CLI_76 sec 9.7.1.1 p. 409 | **Verified by manual**。`GetDnsAsync` 已修正。|
+| `ApplyBasicWizardAsync` 組合順序 | hostname → interface → dns → ntp → password | 設計決策 — 密碼最後才改，避免中途斷線；NTP `forceExecute=true` 會跳過 DryRun。|
 
 ## Re-verification procedure
 

@@ -615,35 +615,62 @@ public static class ScalanceCliCommands
         return spec;
     }
 
-    // ---------- Admin password (INFERRED — see docs/VERIFICATION.md) ----------
+    // ---------- Admin password (VERIFIED against PH_SCALANCE-S615-CLI_76) ----------
     //
-    // The SCALANCE S615 CLI manual section "User accounts" documents per-user
-    // management, but the exact command for changing a password from enable
-    // mode varies by firmware. The form below ("username <u> password <p>") is
-    // inferred from Cisco-IOS conventions and MUST be validated against a real
-    // S615 before DryRun is disabled. Some firmware may require:
-    //   cli(config)# user-account <username>
-    //   cli(config-user)# password <password>
-    //   cli(config-user)# exit
-    // Operators should confirm via `show users` / CLI manual pp. 180-184.
-    public static IReadOnlyList<string> BuildSetAdminPassword(string username, string newPassword)
+    // Two distinct commands, different modes:
+    //   - `change password <pwd>`  — User/Privileged EXEC (cli> / cli#).
+    //       Changes the password of the currently logged-in user. No
+    //       `configure terminal` needed; Trial mode saves immediately so no
+    //       `write memory` either. Manual sec 12.1.2 p. 567.
+    //   - `user-account <name> password <pwd> role <role>` — Global config.
+    //       Creates OR updates another user. Role is REQUIRED. Cannot target
+    //       the currently-logged-in user (the manual forbids it: "logged in
+    //       users cannot be deleted or changed"). Manual sec 12.1.4.7 p. 575.
+    //
+    // Disallowed password characters per manual p. 576: § ? " ; : ` \ Space Delete.
+
+    /// <summary>
+    /// Change the password of the currently logged-in user. Use this when the
+    /// SSH session's user is the account being updated (the typical "change
+    /// admin password" flow).
+    /// </summary>
+    public static IReadOnlyList<string> BuildChangeOwnPassword(string newPassword)
+    {
+        ValidatePassword(newPassword);
+        return new List<string> { $"change password {newPassword}" };
+    }
+
+    /// <summary>
+    /// Set/overwrite another user's password and role in global config.
+    /// Cannot target the currently-logged-in user — use <see cref="BuildChangeOwnPassword"/>
+    /// for that case. Role must be a system-defined or previously-created role name.
+    /// </summary>
+    public static IReadOnlyList<string> BuildSetUserAccount(string username, string newPassword, string role)
     {
         if (string.IsNullOrWhiteSpace(username)) throw new ArgumentException("username required", nameof(username));
-        if (string.IsNullOrWhiteSpace(newPassword)) throw new ArgumentException("password required", nameof(newPassword));
-        // Reject characters that could prematurely terminate the SSH line or
-        // produce unexpected CLI tokenisation. The device itself restricts
-        // password charset; we defend the transport layer here.
-        foreach (var c in newPassword)
-            if (c == '\r' || c == '\n' || c == '"')
-                throw new ArgumentException("password contains illegal control character.", nameof(newPassword));
-
+        if (string.IsNullOrWhiteSpace(role)) throw new ArgumentException("role required — e.g. 'admin'", nameof(role));
+        ValidatePassword(newPassword);
         return new List<string>
         {
             "configure terminal",
-            $"username {username} password {newPassword}",
+            $"user-account {username} password {newPassword} role {role}",
             "end",
             "write memory"
         };
+    }
+
+    private static void ValidatePassword(string pwd)
+    {
+        if (string.IsNullOrWhiteSpace(pwd)) throw new ArgumentException("password required", nameof(pwd));
+        // Defend the SSH transport line first (CR/LF/quote break batching).
+        foreach (var c in pwd)
+        {
+            if (c == '\r' || c == '\n' || c == '"')
+                throw new ArgumentException("password contains illegal control character.", nameof(pwd));
+            // Siemens-disallowed charset per S615 CLI manual p. 576.
+            if (c == '§' || c == '?' || c == ';' || c == ':' || c == '`' || c == '\\' || c == ' ' || c == '\x7f')
+                throw new ArgumentException($"password contains disallowed character '{c}' (S615 manual p. 576).", nameof(pwd));
+        }
     }
 
     // ---------- DNS client (uses verified dnsclient mode — see BuildSetInterface header) ----------
@@ -663,12 +690,10 @@ public static class ScalanceCliCommands
 
         var cmds = new List<string> { "configure terminal", "dnsclient" };
 
-        // Clear any previously configured manual servers so replay is idempotent.
-        // `no manual srv` without an arg is intentionally conservative — actual
-        // S615 syntax is `no manual srv <ip>` per server, but we don't always
-        // know what's there. The Apply flow below re-adds the requested list;
-        // if the device rejects `no manual srv` with no arg it will just no-op.
-        cmds.Add("no manual srv");
+        // Clear all previously configured manual servers so replay is idempotent.
+        // Verified syntax: `no manual {srv <ip_addr>|all}` — S615 CLI manual
+        // sec 9.7.3.2 p. 415. `all` removes every manual DNS entry.
+        cmds.Add("no manual all");
 
         if (servers.Count > 0)
         {
@@ -682,8 +707,10 @@ public static class ScalanceCliCommands
         }
         cmds.Add("exit");
 
+        // Domain name: per manual p. 10741 the command is "ip domain name"
+        // (space, not hyphen) or "domain name". Neither Cisco-style hyphenated.
         if (!string.IsNullOrWhiteSpace(cfg.DomainName))
-            cmds.Add($"ip domain-name {cfg.DomainName}");
+            cmds.Add($"ip domain name {cfg.DomainName}");
 
         cmds.Add("end");
         cmds.Add("write memory");
