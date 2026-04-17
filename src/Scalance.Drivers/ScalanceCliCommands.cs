@@ -1030,6 +1030,66 @@ public static class ScalanceCliCommands
         }
     }
 
+    // ---------- SNMP agent controls (manual sec 9.8 pp. 437-452) ----------
+
+    /// <summary>
+    /// Build CLI to enable or disable the SNMP agent. Verified against
+    /// PH_SCALANCE-S615-CLI_76 sec 9.8.2.1 / 9.8.2.2 pp. 437-438.
+    /// Entered from Global configuration mode.
+    /// </summary>
+    public static IReadOnlyList<string> BuildSetSnmpAgentEnabled(bool enabled)
+    {
+        return new List<string>
+        {
+            "configure terminal",
+            enabled ? "snmpagent" : "no snmpagent",
+            "end",
+            "write memory",
+        };
+    }
+
+    /// <summary>
+    /// Build CLI to select which SNMP versions the agent answers. Verified
+    /// against PH_SCALANCE-S615-CLI_76 sec 9.8.2.5 pp. 441-442:
+    ///   snmp agent version {v3only | all}      (default: all)
+    /// Use <c>v3only</c> to harden against v1/v2c (plaintext community) access.
+    /// </summary>
+    public static IReadOnlyList<string> BuildSetSnmpAgentVersion(SnmpAgentVersionPolicy policy)
+    {
+        var keyword = policy switch
+        {
+            SnmpAgentVersionPolicy.V3Only => "v3only",
+            SnmpAgentVersionPolicy.All => "all",
+            _ => throw new ArgumentOutOfRangeException(nameof(policy), policy, null),
+        };
+        return new List<string>
+        {
+            "configure terminal",
+            $"snmp agent version {keyword}",
+            "end",
+            "write memory",
+        };
+    }
+
+    /// <summary>
+    /// Build CLI to set the SNMP agent port. Verified against
+    /// PH_SCALANCE-S615-CLI_76 sec 9.8.2.16 p. 451-452:
+    ///   snmpagent port &lt;port-number(1024-65535)&gt;     (default 161)
+    /// </summary>
+    public static IReadOnlyList<string> BuildSetSnmpAgentPort(int port)
+    {
+        if (port < 1024 || port > 65535)
+            throw new ArgumentOutOfRangeException(nameof(port),
+                $"snmpagent port {port} 超出範圍 1024-65535（manual p. 451）。");
+        return new List<string>
+        {
+            "configure terminal",
+            $"snmpagent port {port}",
+            "end",
+            "write memory",
+        };
+    }
+
     // ---------- Configuration backup (manual sec 5.4.3 pp. 140-142) ----------
 
     /// <summary>

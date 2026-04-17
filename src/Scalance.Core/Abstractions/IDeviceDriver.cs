@@ -53,6 +53,13 @@ public interface IDeviceDriver : IAsyncDisposable
     Task<OperationResult> CreateConfigBackupAsync(string name, CancellationToken ct = default);
     Task<OperationResult> RestoreConfigBackupAsync(string name, CancellationToken ct = default);
     Task<OperationResult> DeleteConfigBackupAsync(string name, CancellationToken ct = default);
+
+    // SNMP agent administration — PH_SCALANCE-S615-CLI_76 sec 9.8 pp. 437-452.
+    // Governs whether the agent runs, which SNMP versions it answers, and
+    // which UDP port it listens on. Hardening use case: set version=V3Only.
+    Task<OperationResult> SetSnmpAgentEnabledAsync(bool enabled, CancellationToken ct = default);
+    Task<OperationResult> SetSnmpAgentVersionAsync(SnmpAgentVersionPolicy policy, CancellationToken ct = default);
+    Task<OperationResult> SetSnmpAgentPortAsync(int port, CancellationToken ct = default);
 }
 
 public interface IDeviceDriverFactory

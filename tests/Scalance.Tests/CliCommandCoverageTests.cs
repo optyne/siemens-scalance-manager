@@ -58,6 +58,9 @@ public class CliCommandCoverageTests
 
         // Config save/restore (sec 5.4.3 pp. 140-142)
         "configbackup",
+
+        // SNMP agent controls (sec 9.8 pp. 437-452)
+        "snmpagent", "snmp",
     };
 
     // "no <verb> ..." — when the first token is "no", validate the second token.
@@ -155,6 +158,12 @@ public class CliCommandCoverageTests
         foreach (var c in ScalanceCliCommands.BuildConfigBackupCreate("nightly")) yield return c;
         foreach (var c in ScalanceCliCommands.BuildConfigBackupRestore("nightly")) yield return c;
         foreach (var c in ScalanceCliCommands.BuildConfigBackupDelete("nightly")) yield return c;
+
+        // SNMP agent controls (sec 9.8 pp. 437-452)
+        foreach (var c in ScalanceCliCommands.BuildSetSnmpAgentEnabled(true)) yield return c;
+        foreach (var c in ScalanceCliCommands.BuildSetSnmpAgentEnabled(false)) yield return c;
+        foreach (var c in ScalanceCliCommands.BuildSetSnmpAgentVersion(SnmpAgentVersionPolicy.V3Only)) yield return c;
+        foreach (var c in ScalanceCliCommands.BuildSetSnmpAgentPort(8161)) yield return c;
     }
 
     [Fact]

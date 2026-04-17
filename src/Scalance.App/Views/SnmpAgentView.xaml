@@ -1,0 +1,58 @@
+<UserControl x:Class="Scalance.App.Views.SnmpAgentView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="0">
+            <TextBlock Text="設備：" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding SelectedDeviceName, FallbackValue=(無)}"
+                       FontWeight="Bold" VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <TextBlock Grid.Row="1" Margin="0,8,0,0" Opacity="0.7"
+                   Text="對應手冊 sec 9.8.2.1-2 pp. 437-438（snmpagent / no snmpagent）、sec 9.8.2.5 p. 441（snmp agent version）、sec 9.8.2.16 p. 451（snmpagent port）"/>
+
+        <!-- SNMP agent enable -->
+        <StackPanel Orientation="Horizontal" Grid.Row="2" Margin="0,12,0,0">
+            <CheckBox Content="啟用 SNMP 代理" IsChecked="{Binding AgentEnabled}"
+                      VerticalAlignment="Center" MinWidth="200"/>
+            <Button Content="套用" Command="{Binding ApplyEnabledCommand}" Padding="14,2"/>
+        </StackPanel>
+
+        <!-- SNMP version policy -->
+        <StackPanel Orientation="Horizontal" Grid.Row="3" Margin="0,8,0,0">
+            <CheckBox Content="僅允許 SNMPv3（拒 v1/v2c）" IsChecked="{Binding V3Only}"
+                      VerticalAlignment="Center" MinWidth="200"
+                      ToolTip="硬化設定：關閉 community string 形式存取"/>
+            <Button Content="套用" Command="{Binding ApplyVersionCommand}" Padding="14,2"/>
+        </StackPanel>
+
+        <!-- SNMP port -->
+        <StackPanel Orientation="Horizontal" Grid.Row="4" Margin="0,8,0,0">
+            <TextBlock Text="代理監聽埠：" VerticalAlignment="Center" MinWidth="200"/>
+            <TextBox Text="{Binding PortText, UpdateSourceTrigger=PropertyChanged}"
+                     Width="80" ToolTip="1024-65535；裝置預設 161（該值手冊已排除於可設定範圍）"/>
+            <Button Content="套用" Command="{Binding ApplyPortCommand}"
+                    Margin="8,0,0,0" Padding="14,2"/>
+        </StackPanel>
+
+        <Rectangle Grid.Row="5"/>
+
+        <ProgressBar Grid.Row="6" Height="4" IsIndeterminate="{Binding IsBusy}" Margin="0,4"/>
+        <StatusBar Grid.Row="7">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}"/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</UserControl>

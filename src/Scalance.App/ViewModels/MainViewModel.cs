@@ -21,6 +21,7 @@ public sealed partial class MainViewModel : ObservableObject
     public SyslogEditorViewModel Syslog { get; }
     public DiagnosticsViewModel Diagnostics { get; }
     public BackupViewModel Backup { get; }
+    public SnmpAgentViewModel SnmpAgent { get; }
     public DeviceSelection Selection { get; }
     public OperationLog Log { get; }
 
@@ -45,6 +46,7 @@ public sealed partial class MainViewModel : ObservableObject
         SyslogEditorViewModel syslog,
         DiagnosticsViewModel diagnostics,
         BackupViewModel backup,
+        SnmpAgentViewModel snmpAgent,
         DeviceSelection selection,
         DeviceOperationsService ops,
         OperationLog log)
@@ -64,6 +66,7 @@ public sealed partial class MainViewModel : ObservableObject
         Syslog = syslog;
         Diagnostics = diagnostics;
         Backup = backup;
+        SnmpAgent = snmpAgent;
         Selection = selection;
         Log = log;
         dryRun = ops.DryRun;

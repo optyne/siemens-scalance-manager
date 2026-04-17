@@ -494,6 +494,42 @@ public class ScalanceCliCommandsTests
         act.Should().Throw<ArgumentException>();
     }
 
+    // ---- SNMP agent (manual sec 9.8 pp. 437-452) ----
+
+    [Fact]
+    public void BuildSetSnmpAgentEnabled_emits_snmpagent_or_no_snmpagent()
+    {
+        ScalanceCliCommands.BuildSetSnmpAgentEnabled(true)
+            .Should().Contain("snmpagent").And.NotContain("no snmpagent");
+        ScalanceCliCommands.BuildSetSnmpAgentEnabled(false)
+            .Should().Contain("no snmpagent");
+    }
+
+    [Theory]
+    [InlineData(SnmpAgentVersionPolicy.All,    "snmp agent version all")]
+    [InlineData(SnmpAgentVersionPolicy.V3Only, "snmp agent version v3only")]
+    public void BuildSetSnmpAgentVersion_maps_policy(SnmpAgentVersionPolicy policy, string expected)
+    {
+        ScalanceCliCommands.BuildSetSnmpAgentVersion(policy).Should().Contain(expected);
+    }
+
+    [Fact]
+    public void BuildSetSnmpAgentPort_round_trip()
+    {
+        ScalanceCliCommands.BuildSetSnmpAgentPort(8161)
+            .Should().Contain("snmpagent port 8161");
+    }
+
+    [Theory]
+    [InlineData(1023)]
+    [InlineData(65536)]
+    [InlineData(161)]  // default — but per manual range is 1024-65535, so 161 is out of range!
+    public void BuildSetSnmpAgentPort_rejects_out_of_range(int port)
+    {
+        var act = () => ScalanceCliCommands.BuildSetSnmpAgentPort(port);
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
     // ---- configbackup (manual sec 5.4.3 pp. 140-142) ----
 
     [Fact]

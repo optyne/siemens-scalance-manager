@@ -188,6 +188,39 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
         }
     }
 
+    // ---------- SNMP agent controls (manual sec 9.8 pp. 437-452) ----------
+
+    public override async Task<OperationResult> SetSnmpAgentEnabledAsync(bool enabled, CancellationToken ct = default)
+    {
+        try
+        {
+            var cmds = ScalanceCliCommands.BuildSetSnmpAgentEnabled(enabled);
+            return await RunOrPlanAsync(cmds, ct);
+        }
+        catch (Exception ex) { return OperationResult.Fail($"SetSnmpAgentEnabled failed: {ex.Message}", ex); }
+    }
+
+    public override async Task<OperationResult> SetSnmpAgentVersionAsync(SnmpAgentVersionPolicy policy, CancellationToken ct = default)
+    {
+        try
+        {
+            var cmds = ScalanceCliCommands.BuildSetSnmpAgentVersion(policy);
+            return await RunOrPlanAsync(cmds, ct);
+        }
+        catch (Exception ex) { return OperationResult.Fail($"SetSnmpAgentVersion failed: {ex.Message}", ex); }
+    }
+
+    public override async Task<OperationResult> SetSnmpAgentPortAsync(int port, CancellationToken ct = default)
+    {
+        try
+        {
+            var cmds = ScalanceCliCommands.BuildSetSnmpAgentPort(port);
+            return await RunOrPlanAsync(cmds, ct);
+        }
+        catch (ArgumentOutOfRangeException ex) { return OperationResult.Fail(ex.Message, ex); }
+        catch (Exception ex) { return OperationResult.Fail($"SetSnmpAgentPort failed: {ex.Message}", ex); }
+    }
+
     // ---------- Named on-device configbackup (manual sec 5.4 pp. 136-142) ----------
 
     public override async Task<OperationResult<IReadOnlyList<string>>> ListConfigBackupsAsync(CancellationToken ct = default)

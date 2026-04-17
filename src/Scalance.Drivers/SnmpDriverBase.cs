@@ -173,6 +173,13 @@ public abstract class SnmpDriverBase : IDeviceDriver
     public virtual Task<OperationResult> DeleteConfigBackupAsync(string name, CancellationToken ct = default)
         => Task.FromResult(OperationResult.Fail("此設備不支援 configbackup（僅 SSH-CLI 裝置可用）。"));
 
+    public virtual Task<OperationResult> SetSnmpAgentEnabledAsync(bool enabled, CancellationToken ct = default)
+        => Task.FromResult(OperationResult.Fail("此設備不支援 snmpagent 寫入（需要 SSH-CLI）。"));
+    public virtual Task<OperationResult> SetSnmpAgentVersionAsync(SnmpAgentVersionPolicy policy, CancellationToken ct = default)
+        => Task.FromResult(OperationResult.Fail("此設備不支援 snmp agent version 寫入（需要 SSH-CLI）。"));
+    public virtual Task<OperationResult> SetSnmpAgentPortAsync(int port, CancellationToken ct = default)
+        => Task.FromResult(OperationResult.Fail("此設備不支援 snmpagent port 寫入（需要 SSH-CLI）。"));
+
     public virtual async ValueTask DisposeAsync()
     {
         if (Snmp is not null) await Snmp.DisposeAsync();

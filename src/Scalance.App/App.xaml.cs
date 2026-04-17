@@ -45,6 +45,7 @@ public partial class App : Application
         services.AddSingleton<SyslogEditorViewModel>();
         services.AddSingleton<DiagnosticsViewModel>();
         services.AddSingleton<BackupViewModel>();
+        services.AddSingleton<SnmpAgentViewModel>();
         services.AddTransient<DeviceEditorViewModel>();
         services.AddTransient<MainViewModel>();
         services.AddTransient<MainWindow>();

@@ -109,6 +109,9 @@
             <TabItem Header="備份">
                 <views:BackupView DataContext="{Binding Backup}"/>
             </TabItem>
+            <TabItem Header="SNMP 代理">
+                <views:SnmpAgentView DataContext="{Binding SnmpAgent}"/>
+            </TabItem>
             <TabItem Header="Basic Wizard">
                 <views:BasicWizardView DataContext="{Binding BasicWizard}"/>
             </TabItem>
