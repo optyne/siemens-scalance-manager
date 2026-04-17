@@ -46,6 +46,26 @@ public class ScalanceCliCommandsTests
     }
 
     [Theory]
+    [InlineData(0)]
+    [InlineData(4095)]
+    public void BuildSetVlans_rejects_out_of_range_id(int id)
+    {
+        // Manual p. 250: vlan-id range 1..4094. Device would reject 0 or 4095+.
+        var vlans = new List<Vlan> { new Vlan { Id = id, Name = "x" } };
+        var act = () => ScalanceCliCommands.BuildSetVlans(vlans);
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void BuildSetVlans_rejects_name_over_32_chars()
+    {
+        // Manual p. 265: VLAN name max 32 characters.
+        var vlans = new List<Vlan> { new Vlan { Id = 10, Name = new string('x', 33) } };
+        var act = () => ScalanceCliCommands.BuildSetVlans(vlans);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Theory]
     [InlineData(1, "0.1")]
     [InlineData(8, "0.8")]
     [InlineData(101, "1.1")]

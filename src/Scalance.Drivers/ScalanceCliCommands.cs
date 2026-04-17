@@ -66,12 +66,22 @@ public static class ScalanceCliCommands
         foreach (var v in vlans.OrderBy(x => x.Id))
         {
             // Enter VLAN configuration mode (creates VLAN if it doesn't exist).
-            // S615 CLI manual p. 249: vlan <vlan-id(1-4094)>
+            // S615 CLI manual p. 249-250: vlan <vlan-id(1-4094)>. The device
+            // will reject anything outside this range, so fail fast here.
+            if (v.Id < 1 || v.Id > 4094)
+                throw new ArgumentOutOfRangeException(nameof(vlans),
+                    $"VLAN id {v.Id} 超出範圍 1-4094（S615 manual p. 250）。");
             cmds.Add($"vlan {v.Id}");
 
-            // Set VLAN name (p. 265): name <vlan-name> (max 32 chars)
+            // Set VLAN name (p. 265): name <vlan-name> (max 32 chars).
             if (!string.IsNullOrWhiteSpace(v.Name))
+            {
+                if (v.Name.Length > 32)
+                    throw new ArgumentException(
+                        $"VLAN name '{v.Name}' 超過 32 字元（S615 manual p. 265）。",
+                        nameof(vlans));
                 cmds.Add($"name {v.Name}");
+            }
 
             // Build the ports command (S615 CLI manual sec 8.1.4.5 p. 266-267).
             // Syntax: ports (<interface-type> <port-list>) [untagged (<interface-type> <port-list>)]

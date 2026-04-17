@@ -135,6 +135,7 @@ inferred items are limited to output parsing and edge cases.
 | DNS client `shutdown` 語意 | PH_SCALANCE-S615-CLI_76 sec 9.7.3.4 p. 416 | **手冊文件錯誤**：該節 Description 寫「enable the DNS client」但 Result 寫「DNS client is disabled」。以 Result 為準（符合 Cisco 慣例：`shutdown` 禁用、`no shutdown` 啟用）。程式語意正確。|
 | `show ip interface [{vlan <id>\| <if-type> <if-id>}]` | PH_SCALANCE-S615-CLI_76 sec 5.1.1.12 p. 76 | **Re-verified 2026-04**。手冊未提供輸出樣本，`ParseInterfaces` 已做多格式容錯。|
 | Firewall `from`/`to` iftype 與 ifstring 為**分開兩個 token**（空格） | PH_SCALANCE-S615-CLI_76 sec 12.3.4.31 p. 627（`from <iftype> [<ifstring>]`）；p. 65 / p. 430 範例 `int vlan 1` | **Verified + fixed 2026-04**。先前 `FirewallRule.From = "vlan1"` 及 `BasicWizardViewModel.InterfaceName = "vlan1"` 無空格，裝置會把 `vlan1` 當成未知 iftype 而拒絕。已改為 `vlan 1` / `vlan 2`；`BuildCreateFirewallRule` 新增空值檢查。|
+| `vlan <vlan-id(1-4094)>` 範圍驗證 + name 32 字元上限 | PH_SCALANCE-S615-CLI_76 sec 8.1.2.10 p. 250；sec 8.1.4.3 p. 265 | **Verified + enforced 2026-04**。`BuildSetVlans` 對 `Vlan.Id < 1 \|\| > 4094` 丟 `ArgumentOutOfRangeException`；`Name.Length > 32` 丟 `ArgumentException`，避免裝置拒絕 cryptic 錯誤。|
 
 ## Re-verification procedure
 
