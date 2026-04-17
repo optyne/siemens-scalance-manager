@@ -137,6 +137,13 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
                 }
                 serverId++;
             }
+            // Clear any NTP slots the caller didn't fill — otherwise reducing
+            // the server list (e.g. 3 → 1) leaves the old entries active.
+            // Manual sec 7.2.3.2 p. 218: `no ntp server id <1-3>` deletes a
+            // specific server; it is a no-op on an already-empty slot so
+            // emitting it unconditionally for unused slots is safe.
+            for (int emptyId = serverId; emptyId <= 3; emptyId++)
+                cmds.Add($"no ntp server id {emptyId}");
 
             // Time zone offset: SCALANCE uses `ntp time diff +HH:MM` INSIDE
             // NTP config mode (S615 CLI manual sec 7.2.3.6 p. 221). It is NOT
