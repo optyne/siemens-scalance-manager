@@ -290,6 +290,26 @@ public class ScalanceCliCommandsTests
         cmds.Should().NotContain(c => c.Contains("srcip *") || c.Contains("dstip *"));
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(129)]
+    [InlineData(-1)]
+    public void BuildDeleteFirewallRule_rejects_out_of_range_idx(int idx)
+    {
+        // Manual sec 12.3.4.32 p. 630: idx range 1-128.
+        var act = () => ScalanceCliCommands.BuildDeleteFirewallRule(idx);
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void BuildDeleteAllFirewallRules_emits_no_ipv4rule_all()
+    {
+        var cmds = ScalanceCliCommands.BuildDeleteAllFirewallRules();
+        cmds.Should().Contain("no ipv4rule all");
+        cmds[0].Should().Be("configure terminal");
+        cmds[^1].Should().Be("write memory");
+    }
+
     [Fact]
     public void BuildSetPredefinedRule_emits_full_manual_form()
     {

@@ -411,14 +411,37 @@ public static class ScalanceCliCommands
         };
     }
 
-    /// <summary>Build CLI commands to delete a firewall rule by index.</summary>
+    /// <summary>
+    /// Build CLI commands to delete a firewall rule by index.
+    /// Verified against S615 CLI manual sec 12.3.4.32 p. 630:
+    ///   no ipv4rule {all | idx &lt;integer(1-128)&gt;}
+    /// </summary>
     public static IReadOnlyList<string> BuildDeleteFirewallRule(int index)
     {
+        if (index < 1 || index > 128)
+            throw new ArgumentOutOfRangeException(nameof(index),
+                $"firewall rule idx {index} 超出範圍 1-128（manual sec 12.3.4.32 p. 630）。");
         return new List<string>
         {
             "configure terminal",
             "firewall",
             $"no ipv4rule idx {index}",
+            "end",
+            "write memory",
+        };
+    }
+
+    /// <summary>
+    /// Delete ALL ipv4 firewall rules. Manual sec 12.3.4.32 p. 630:
+    ///   no ipv4rule all
+    /// </summary>
+    public static IReadOnlyList<string> BuildDeleteAllFirewallRules()
+    {
+        return new List<string>
+        {
+            "configure terminal",
+            "firewall",
+            "no ipv4rule all",
             "end",
             "write memory",
         };
