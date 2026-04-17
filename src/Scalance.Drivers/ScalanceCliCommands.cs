@@ -370,6 +370,14 @@ public static class ScalanceCliCommands
     {
         if (rule is null) throw new ArgumentNullException(nameof(rule));
 
+        // Manual p. 627: `from` / `to` must name a valid iftype keyword
+        // (e.g. "vlan 1", "Device", "IPsec 3"). Empty values produce
+        // `ipv4rule from  to  srcip …` which the device rejects outright.
+        if (string.IsNullOrWhiteSpace(rule.From))
+            throw new ArgumentException("FirewallRule.From 必須指定介面（如 'vlan 1'）— manual p. 627。", nameof(rule));
+        if (string.IsNullOrWhiteSpace(rule.To))
+            throw new ArgumentException("FirewallRule.To 必須指定介面（如 'vlan 2'）— manual p. 627。", nameof(rule));
+
         var actionStr = rule.Action switch
         {
             FirewallAction.Accept => "acc",

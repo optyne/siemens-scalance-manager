@@ -335,6 +335,20 @@ public class ScalanceCliCommandsTests
     }
 
     [Fact]
+    public void BuildCreateFirewallRule_rejects_blank_from_or_to()
+    {
+        // Manual p. 627: `from` / `to` require a valid iftype keyword. Empty
+        // values would emit `ipv4rule from  to  srcip …` which the device rejects.
+        var blankFrom = new FirewallRule { From = "", To = "Device", Action = FirewallAction.Accept };
+        var a1 = () => ScalanceCliCommands.BuildCreateFirewallRule(blankFrom);
+        a1.Should().Throw<ArgumentException>();
+
+        var blankTo = new FirewallRule { From = "vlan 1", To = "   ", Action = FirewallAction.Accept };
+        var a2 = () => ScalanceCliCommands.BuildCreateFirewallRule(blankTo);
+        a2.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
     public void BuildCreateFirewallRule_rejects_prior_above_127()
     {
         var rule = new FirewallRule
