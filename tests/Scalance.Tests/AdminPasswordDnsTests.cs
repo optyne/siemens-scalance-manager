@@ -98,6 +98,15 @@ public class AdminPasswordDnsTests
     }
 
     [Fact]
+    public void BuildSetDns_rejects_more_than_three_servers()
+    {
+        // Manual p. 414: maximum of three DNS servers.
+        var cfg = new DnsConfig { Servers = { "1.1.1.1", "2.2.2.2", "3.3.3.3", "4.4.4.4" } };
+        var act = () => ScalanceCliCommands.BuildSetDns(cfg);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
     public void BuildSetDns_rejects_non_ipv4_server()
     {
         // Manual p. 414: `manual srv <ip_addr>` requires a valid IP.

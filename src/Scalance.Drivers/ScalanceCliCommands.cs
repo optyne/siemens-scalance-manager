@@ -199,10 +199,15 @@ public static class ScalanceCliCommands
         //     server type manual                   (use manually configured servers; p. 415)
         //     manual srv <ip>                      (add server; p. 414)
         //     exit                                 -> cli(config)#
-        // Manual p. 414 requires the DNS server parameter to be a valid IP.
+        // Manual p. 414 requires the DNS server parameter to be a valid IP
+        // and caps the list at three entries.
         var dnsServers = cfg.DnsServers
             .Where(d => !string.IsNullOrWhiteSpace(d))
             .ToList();
+        if (dnsServers.Count > 3)
+            throw new ArgumentException(
+                $"DnsServers 共 {dnsServers.Count} 台超過上限 3 台（S615 manual p. 414）。",
+                nameof(cfg));
         foreach (var s in dnsServers) RequireIpv4(s, "DnsServers entry");
         if (dnsServers.Count > 0)
         {
@@ -620,14 +625,18 @@ public static class ScalanceCliCommands
                 $"FirewallRule.{paramName} '{value}' 首個 token 非手冊列出的 iftype（p. 598-599：vlan/ppp/IPsec[all]/OpenVPN[all]/SinemaRC/Device）。",
                 paramName);
         // Second token — when present — must be a non-negative decimal (ifnum).
+        // The manual range (p. 627-628) is 0..4094.
         if (parts.Length > 2)
             throw new ArgumentException(
                 $"FirewallRule.{paramName} '{value}' 有多餘的 token — 格式為 '<iftype> [<ifstring>]'。",
                 paramName);
-        if (parts.Length == 2 && !int.TryParse(parts[1], out var n) || (parts.Length == 2 && int.TryParse(parts[1], out n) && n < 0))
-            throw new ArgumentException(
-                $"FirewallRule.{paramName} '{value}' 的 ifstring 必須是非負整數。",
-                paramName);
+        if (parts.Length == 2)
+        {
+            if (!int.TryParse(parts[1], out var ifNum) || ifNum < 0 || ifNum > 4094)
+                throw new ArgumentException(
+                    $"FirewallRule.{paramName} '{value}' 的 ifstring 必須是 0-4094 的整數（manual p. 627）。",
+                    paramName);
+        }
     }
 
     private static void RejectLineControlChars(string value, string paramName)
@@ -1090,6 +1099,11 @@ public static class ScalanceCliCommands
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .Select(s => s.Trim())
             .ToList();
+        // Manual p. 414: "A maximum of three DNS servers can be configured."
+        if (servers.Count > 3)
+            throw new ArgumentException(
+                $"DNS servers 共 {servers.Count} 台超過上限 3 台（S615 manual p. 414）。",
+                nameof(cfg));
         // Manual p. 414: `manual srv <ip_addr>` requires a valid IP address.
         foreach (var s in servers) RequireIpv4(s, "DNS server");
         // Manual p. 98-99-adjacent refs: domain name must be one token.

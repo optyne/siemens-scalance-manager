@@ -539,6 +539,28 @@ public class ScalanceCliCommandsTests
     }
 
     [Fact]
+    public void BuildCreateFirewallRule_rejects_ifstring_out_of_range()
+    {
+        // Manual p. 627-628: ifstring range 0..4094.
+        var rule = new FirewallRule { From = "vlan 5000", To = "Device", Action = FirewallAction.Accept };
+        var act = () => ScalanceCliCommands.BuildCreateFirewallRule(rule);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void BuildSetInterface_rejects_more_than_three_dns_servers()
+    {
+        // Manual p. 414: maximum of three DNS servers.
+        var cfg = new InterfaceIpConfig
+        {
+            InterfaceName = "vlan 1", DhcpEnabled = true,
+            DnsServers = { "1.1.1.1", "2.2.2.2", "3.3.3.3", "4.4.4.4" }
+        };
+        var act = () => ScalanceCliCommands.BuildSetInterface(cfg);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
     public void BuildCreateFirewallRule_rejects_srcip_with_newline()
     {
         var rule = new FirewallRule
