@@ -98,6 +98,23 @@ public class AdminPasswordDnsTests
     }
 
     [Fact]
+    public void BuildSetDns_rejects_non_ipv4_server()
+    {
+        // Manual p. 414: `manual srv <ip_addr>` requires a valid IP.
+        var cfg = new DnsConfig { Servers = { "not-an-ip" } };
+        var act = () => ScalanceCliCommands.BuildSetDns(cfg);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void BuildSetDns_rejects_domain_name_with_space()
+    {
+        var cfg = new DnsConfig { Servers = { "8.8.8.8" }, DomainName = "foo bar.com" };
+        var act = () => ScalanceCliCommands.BuildSetDns(cfg);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
     public void BuildSetDns_enters_dnsclient_mode_and_adds_servers()
     {
         var cfg = new DnsConfig { Servers = { "8.8.8.8", "1.1.1.1" }, DomainName = "example.com" };

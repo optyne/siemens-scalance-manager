@@ -147,6 +147,12 @@ public static class ScalanceCliCommands
         if (cfg is null) throw new ArgumentNullException(nameof(cfg));
         if (string.IsNullOrWhiteSpace(cfg.InterfaceName))
             throw new ArgumentException("InterfaceName is required.", nameof(cfg));
+        // Interface name sits on the SSH command line alongside no user data,
+        // but still defend the batched stream against CR/LF/quote.
+        foreach (var c in cfg.InterfaceName)
+            if (c == '\r' || c == '\n' || c == '"')
+                throw new ArgumentException(
+                    "InterfaceName 含非法控制字元 (CR/LF/\").", nameof(cfg));
 
         var cmds = new List<string>
         {
@@ -167,7 +173,11 @@ public static class ScalanceCliCommands
             if (string.IsNullOrWhiteSpace(cfg.IpAddress))
                 throw new ArgumentException("IpAddress required when DHCP disabled.", nameof(cfg));
             // p. 338-339: ip address <ip-address> {<subnet-mask> | / <prefix-length(1-32)>}
+            // Manual requires a valid IPv4 address and mask. Fail fast here so
+            // the device doesn't reject the batch mid-way.
+            RequireIpv4(cfg.IpAddress, "IpAddress");
             var mask = cfg.SubnetMask ?? PrefixToMask(cfg.PrefixLength ?? 24);
+            RequireIpv4(mask, "SubnetMask");
             cmds.Add($"ip address {cfg.IpAddress} {mask}");
         }
 
@@ -177,7 +187,10 @@ public static class ScalanceCliCommands
         // ip route <prefix> <mask> <next-hop>
         // For default route: ip route 0.0.0.0 0.0.0.0 <gateway>
         if (!string.IsNullOrWhiteSpace(cfg.DefaultGateway))
+        {
+            RequireIpv4(cfg.DefaultGateway, "DefaultGateway");
             cmds.Add($"ip route 0.0.0.0 0.0.0.0 {cfg.DefaultGateway}");
+        }
 
         // DNS: S615 uses a dedicated dnsclient mode (CLI manual sec 9.7, pp. 408-417),
         // NOT the Cisco-style "ip name-server". Mode hierarchy:
@@ -186,9 +199,11 @@ public static class ScalanceCliCommands
         //     server type manual                   (use manually configured servers; p. 415)
         //     manual srv <ip>                      (add server; p. 414)
         //     exit                                 -> cli(config)#
+        // Manual p. 414 requires the DNS server parameter to be a valid IP.
         var dnsServers = cfg.DnsServers
             .Where(d => !string.IsNullOrWhiteSpace(d))
             .ToList();
+        foreach (var s in dnsServers) RequireIpv4(s, "DnsServers entry");
         if (dnsServers.Count > 0)
         {
             cmds.Add("dnsclient");
@@ -202,6 +217,20 @@ public static class ScalanceCliCommands
         cmds.Add("end");
         cmds.Add("write memory");
         return cmds;
+    }
+
+    private static void RequireIpv4(string value, string paramName)
+    {
+        // Require strict dotted-quad: System.Net.IPAddress.TryParse on .NET
+        // will happily accept "1.2.3" as 1.2.0.3 (legacy BSD form), which the
+        // SCALANCE CLI does not match. Enforce four octets before TryParse.
+        var parts = value?.Split('.') ?? Array.Empty<string>();
+        if (parts.Length != 4
+            || !System.Net.IPAddress.TryParse(value, out var ip)
+            || ip.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+            throw new ArgumentException(
+                $"{paramName} '{value}' 不是合法的 IPv4 位址（需為 a.b.c.d 四段 0-255）。",
+                paramName);
     }
 
     /// <summary>
@@ -936,6 +965,14 @@ public static class ScalanceCliCommands
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .Select(s => s.Trim())
             .ToList();
+        // Manual p. 414: `manual srv <ip_addr>` requires a valid IP address.
+        foreach (var s in servers) RequireIpv4(s, "DNS server");
+        // Manual p. 98-99-adjacent refs: domain name must be one token.
+        if (!string.IsNullOrWhiteSpace(cfg.DomainName))
+            foreach (var c in cfg.DomainName)
+                if (c == '\r' || c == '\n' || c == '"' || c == ' ')
+                    throw new ArgumentException(
+                        "DomainName 含空白或控制字元 (CR/LF/space/\")。", nameof(cfg));
 
         var cmds = new List<string> { "configure terminal", "dnsclient" };
 

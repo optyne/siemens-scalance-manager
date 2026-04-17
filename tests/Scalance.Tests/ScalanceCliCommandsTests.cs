@@ -132,6 +132,43 @@ public class ScalanceCliCommandsTests
         cmds.Should().Contain("ip route 0.0.0.0 0.0.0.0 192.168.1.254");
     }
 
+    [Theory]
+    [InlineData("not-an-ip")]
+    [InlineData("1.2.3.256")]
+    [InlineData("1.2.3")]
+    [InlineData("1.1.1.1;evil")]
+    public void BuildSetInterface_rejects_non_ipv4_address(string bad)
+    {
+        var cfg = new InterfaceIpConfig
+        {
+            InterfaceName = "vlan 1", DhcpEnabled = false,
+            IpAddress = bad, PrefixLength = 24
+        };
+        var act = () => ScalanceCliCommands.BuildSetInterface(cfg);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void BuildSetInterface_rejects_non_ipv4_gateway()
+    {
+        var cfg = new InterfaceIpConfig
+        {
+            InterfaceName = "vlan 1", DhcpEnabled = false,
+            IpAddress = "10.0.0.1", PrefixLength = 24,
+            DefaultGateway = "not-an-ip"
+        };
+        var act = () => ScalanceCliCommands.BuildSetInterface(cfg);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void BuildSetInterface_rejects_interface_name_with_newline()
+    {
+        var cfg = new InterfaceIpConfig { InterfaceName = "vlan 1\ninject", DhcpEnabled = true };
+        var act = () => ScalanceCliCommands.BuildSetInterface(cfg);
+        act.Should().Throw<ArgumentException>();
+    }
+
     [Fact]
     public void BuildSetInterface_rejects_static_config_without_ip()
     {
