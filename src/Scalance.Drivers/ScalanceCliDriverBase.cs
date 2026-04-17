@@ -91,7 +91,8 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
         try
         {
             var ssh = await GetSshAsync(ct);
-            var output = await ssh.RunAsync("show ntp", ct);
+            // Verified command: `show ntp info` — S615 CLI manual sec 7.2.1.1 p. 215.
+            var output = await ssh.RunAsync("show ntp info", ct);
             return OperationResult<NtpConfig>.Ok(ParseNtp(output));
         }
         catch (Exception ex)
