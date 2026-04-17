@@ -120,6 +120,8 @@ inferred items are limited to output parsing and edge cases.
 | IPsec `authentication` 子模式 → `auth psk <key>` / `auth cacert <ca> localcert <local>` | PH_SCALANCE-S615-CLI_76 sec 12.4.6.1/6.2 p. 727-728 | **Re-verified 2026-04**。|
 | `k-proto {ikev1\|ikev2}` | PH_SCALANCE-S615-CLI_76 sec 12.4.5.2 p. 718 | **Re-verified 2026-04**。|
 | `show firewall ip-rules {ipv4\|ipv6\|any}` / `show firewall pre-rules [{ipv4\|ipv6}]` | PH_SCALANCE-S615-CLI_76 sec 12.3.2.5/6/7 p. 593-594 | **Re-verified 2026-04**。|
+| DNS client `shutdown` 語意 | PH_SCALANCE-S615-CLI_76 sec 9.7.3.4 p. 416 | **手冊文件錯誤**：該節 Description 寫「enable the DNS client」但 Result 寫「DNS client is disabled」。以 Result 為準（符合 Cisco 慣例：`shutdown` 禁用、`no shutdown` 啟用）。程式語意正確。|
+| `show ip interface [{vlan <id>\| <if-type> <if-id>}]` | PH_SCALANCE-S615-CLI_76 sec 5.1.1.12 p. 76 | **Re-verified 2026-04**。手冊未提供輸出樣本，`ParseInterfaces` 已做多格式容錯。|
 
 ## Re-verification procedure
 
