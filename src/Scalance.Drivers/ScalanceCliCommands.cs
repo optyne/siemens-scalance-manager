@@ -165,13 +165,23 @@ public static class ScalanceCliCommands
 
         if (cfg.DhcpEnabled)
         {
-            // p. 340: ip address dhcp (in interface config mode of VLAN)
+            // p. 340: ip address dhcp (in interface config mode of VLAN).
+            // Clear any static assignment first so re-applying a DHCP config
+            // over a previously-static interface is deterministic.
+            cmds.Add("no ip address");
             cmds.Add("ip address dhcp");
         }
         else
         {
             if (string.IsNullOrWhiteSpace(cfg.IpAddress))
                 throw new ArgumentException("IpAddress required when DHCP disabled.", nameof(cfg));
+            // Manual sec 9.1.3.2 p. 339 lists as a Requirement: "DHCP was
+            // disabled with the no ip address command." Without this, a
+            // transition from DHCP → static can leave the device in an
+            // ambiguous state or reject the new static address. Emitting
+            // `no ip address` unconditionally is idempotent and matches the
+            // manual's prescribed order.
+            cmds.Add("no ip address");
             // p. 338-339: ip address <ip-address> {<subnet-mask> | / <prefix-length(1-32)>}
             // Manual requires a valid IPv4 address and mask. Fail fast here so
             // the device doesn't reject the batch mid-way.

@@ -115,6 +115,38 @@ public class ScalanceCliCommandsTests
     }
 
     [Fact]
+    public void BuildSetInterface_static_emits_no_ip_address_before_ip_address()
+    {
+        // Manual sec 9.1.3.2 p. 339 requires `no ip address` before setting
+        // a static address, so a transition from DHCP → static is accepted.
+        var cfg = new InterfaceIpConfig
+        {
+            InterfaceName = "vlan 1",
+            DhcpEnabled = false,
+            IpAddress = "10.0.0.1",
+            PrefixLength = 24,
+        };
+        var cmds = ScalanceCliCommands.BuildSetInterface(cfg).ToList();
+        var noIp = cmds.IndexOf("no ip address");
+        var setIp = cmds.FindIndex(c => c.StartsWith("ip address 10.0.0.1 "));
+        noIp.Should().BeGreaterThan(0, "no ip address must precede static assignment");
+        noIp.Should().BeLessThan(setIp);
+    }
+
+    [Fact]
+    public void BuildSetInterface_dhcp_clears_static_first()
+    {
+        // Switching to DHCP while a previous static address is in place must
+        // also go through `no ip address` so DHCP is unambiguous.
+        var cfg = new InterfaceIpConfig { InterfaceName = "vlan 1", DhcpEnabled = true };
+        var cmds = ScalanceCliCommands.BuildSetInterface(cfg).ToList();
+        var noIp = cmds.IndexOf("no ip address");
+        var dhcp = cmds.IndexOf("ip address dhcp");
+        noIp.Should().BeGreaterThan(0);
+        noIp.Should().BeLessThan(dhcp);
+    }
+
+    [Fact]
     public void BuildSetInterface_static_uses_prefix_length_to_derive_mask()
     {
         var cfg = new InterfaceIpConfig
