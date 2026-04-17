@@ -1,0 +1,63 @@
+<UserControl x:Class="Scalance.App.Views.NtpEditorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="0">
+            <TextBlock Text="設備：" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding SelectedDeviceName, FallbackValue=(無)}" FontWeight="Bold" VerticalAlignment="Center"/>
+            <Separator Width="16"/>
+            <Button Content="載入" Command="{Binding LoadCommand}"/>
+            <Button Content="套用" Command="{Binding ApplyCommand}"/>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="1" Margin="0,8">
+            <CheckBox Content="啟用 NTP" IsChecked="{Binding Enabled}" VerticalAlignment="Center"/>
+            <TextBlock Text="時區：" Margin="16,0,4,0" VerticalAlignment="Center"/>
+            <TextBox Text="{Binding Timezone}" Width="160"/>
+            <TextBlock Text="輪詢（秒）：" Margin="16,0,4,0" VerticalAlignment="Center"/>
+            <TextBox Text="{Binding PollIntervalSeconds}" Width="60"/>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="2">
+            <TextBlock Text="新增伺服器：" VerticalAlignment="Center"/>
+            <TextBox Text="{Binding NewServerHost, UpdateSourceTrigger=PropertyChanged}" Width="200"/>
+            <Button Content="新增" Command="{Binding AddServerCommand}"/>
+        </StackPanel>
+
+        <DataGrid Grid.Row="3" Margin="0,8"
+                  ItemsSource="{Binding Servers}"
+                  AutoGenerateColumns="False"
+                  HeadersVisibility="Column" CanUserAddRows="False">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="主機"       Binding="{Binding Host}" Width="*"/>
+                <DataGridTextColumn Header="埠"         Binding="{Binding Port}" Width="80"/>
+                <DataGridCheckBoxColumn Header="偏好"   Binding="{Binding Preferred}" Width="90"/>
+                <DataGridTemplateColumn Header="" Width="80">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="移除"
+                                    Command="{Binding DataContext.RemoveServerCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <ProgressBar Grid.Row="4" Height="4" IsIndeterminate="{Binding IsBusy}" Margin="0,4"/>
+        <StatusBar Grid.Row="5">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}"/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</UserControl>

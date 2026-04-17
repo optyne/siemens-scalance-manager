@@ -1,0 +1,67 @@
+<UserControl x:Class="Scalance.App.Views.FirewallEditorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="180"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="0">
+            <TextBlock Text="設備：" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding SelectedDeviceName, FallbackValue=(無)}" FontWeight="Bold" VerticalAlignment="Center"/>
+            <Separator Width="16"/>
+            <Button Content="載入" Command="{Binding LoadCommand}" Margin="4,0"/>
+            <Button Content="套用" Command="{Binding ApplyCommand}" Margin="4,0"/>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="1" Margin="0,8">
+            <TextBlock Text="自訂 IPv4 規則" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+            <Separator Width="16"/>
+            <Button Content="新增規則" Command="{Binding AddRuleCommand}" Margin="4,0"/>
+            <Button Content="移除選取規則" Command="{Binding RemoveRuleCommand}" Margin="4,0"/>
+        </StackPanel>
+
+        <DataGrid Grid.Row="2" Margin="0,4"
+                  ItemsSource="{Binding Rules}"
+                  SelectedItem="{Binding SelectedRule}"
+                  AutoGenerateColumns="False"
+                  HeadersVisibility="Column" CanUserAddRows="False">
+            <DataGrid.Columns>
+                <DataGridCheckBoxColumn Header="啟用"       Binding="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}" Width="50"/>
+                <DataGridTextColumn     Header="動作"       Binding="{Binding Action, UpdateSourceTrigger=PropertyChanged}"  Width="70"/>
+                <DataGridTextColumn     Header="來源介面"   Binding="{Binding FromInterface, UpdateSourceTrigger=PropertyChanged}"    Width="100"/>
+                <DataGridTextColumn     Header="目的介面"   Binding="{Binding ToInterface, UpdateSourceTrigger=PropertyChanged}"      Width="100"/>
+                <DataGridTextColumn     Header="來源 CIDR"  Binding="{Binding SourceCidr, UpdateSourceTrigger=PropertyChanged}" Width="140"/>
+                <DataGridTextColumn     Header="目的 CIDR"  Binding="{Binding DestinationCidr, UpdateSourceTrigger=PropertyChanged}" Width="140"/>
+                <DataGridTextColumn     Header="服務"       Binding="{Binding Service, UpdateSourceTrigger=PropertyChanged}" Width="100"/>
+                <DataGridCheckBoxColumn Header="記錄"       Binding="{Binding LogEnabled, UpdateSourceTrigger=PropertyChanged}"     Width="50"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <TextBlock Grid.Row="3" Text="預設 IPv4 服務" FontWeight="Bold" FontSize="14" Margin="0,8,0,4"/>
+
+        <DataGrid Grid.Row="4" Margin="0,4"
+                  ItemsSource="{Binding PredefinedServices}"
+                  AutoGenerateColumns="False"
+                  HeadersVisibility="Column" CanUserAddRows="False">
+            <DataGrid.Columns>
+                <DataGridTextColumn     Header="服務名稱"          Binding="{Binding ServiceName}" Width="200" IsReadOnly="True"/>
+                <DataGridCheckBoxColumn Header="本地存取（vlan1）" Binding="{Binding LocalAccess, UpdateSourceTrigger=PropertyChanged}" Width="140"/>
+                <DataGridCheckBoxColumn Header="外部存取"          Binding="{Binding ExternalAccess, UpdateSourceTrigger=PropertyChanged}" Width="140"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <ProgressBar Grid.Row="5" Height="4" IsIndeterminate="{Binding IsBusy}" Margin="0,4"/>
+        <StatusBar Grid.Row="6">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}"/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</UserControl>

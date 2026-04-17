@@ -1,0 +1,58 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet --version)",
+      "Bash(where pdftoppm *)",
+      "Bash(winget --version)",
+      "Bash(winget install *)",
+      "Bash(\"/c/Program Files/dotnet/dotnet.exe\" --version)",
+      "Read(//c/Users/USER_2/AppData/Local/Microsoft/WinGet/Links//**)",
+      "Read(//c/Users/USER_2/AppData/Local/Microsoft/WinGet/Packages//**)",
+      "Bash(export PATH=\"/c/Program Files/dotnet:$PATH\")",
+      "Bash(mkdir -p src tests)",
+      "Bash(dotnet new *)",
+      "Bash(dotnet add *)",
+      "Bash(dotnet build *)",
+      "Bash(dotnet test *)",
+      "Bash(ping *)",
+      "Bash(powershell *)",
+      "Bash(py --version)",
+      "Bash(where python *)",
+      "Bash(dotnet run *)",
+      "Bash(dotnet publish *)",
+      "Bash(python -c \"import openpyxl; wb=openpyxl.load_workbook\\('SCALANCE_S615_Full_CLI_Commands_Regex.xlsx'\\); print\\([s.title for s in wb.worksheets]\\); ws=wb.active; print\\('rows:', ws.max_row, 'cols:', ws.max_column\\); [print\\(i, [c.value for c in row]\\) for i,row in enumerate\\(ws.iter_rows\\(max_row=3\\),1\\)]\")",
+      "Bash(where python3 *)",
+      "Bash(py *)",
+      "Bash(\"/c/Program Files/dotnet/dotnet.exe\" test tests/Scalance.Tests/Scalance.Tests.csproj --nologo)",
+      "Skill(update-config)",
+      "Bash(python *)",
+      "Bash(\"/c/Program Files/dotnet/dotnet.exe\" build src/SiemensScalanceManager.sln -c Debug)",
+      "Bash(where pwsh *)",
+      "Bash(where powershell *)",
+      "Bash(bash -c 'input=$\\(cat\\); cmd=$\\(echo \"$input\" | grep -oE \"\\\\\"command\\\\\"[[:space:]]*:[[:space:]]*\\\\\"[^\\\\\"]*\\\\\"\" | head -1 | sed \"s/.*: *\\\\\"//; s/\\\\\"$//\"\\); echo \"extracted: $cmd\"; echo \"$cmd\" | grep -qiE \"dotnet[^[:space:]]*[[:space:]]+build\" && echo MATCH || echo NO-MATCH')",
+      "Read(//tmp/**)",
+      "Bash(where dotnet *)",
+      "Bash(\"C:/Program Files/dotnet/dotnet.exe\" --version)",
+      "Bash(\"C:/Program Files/dotnet/dotnet.exe\" build src/SiemensScalanceManager.sln -c Debug --nologo -v:minimal)",
+      "Bash(\"C:/Program Files/dotnet/dotnet.exe\" test tests/Scalance.Tests/Scalance.Tests.csproj --nologo --no-build -v:minimal)",
+      "Bash(\"C:/Program Files/dotnet/dotnet.exe\" publish src/Scalance.App/Scalance.App.csproj -c Release -r win-x64 --self-contained true -o publish/win-x64 -p:PublishSingleFile=false -p:DebugType=embedded --nologo -v:minimal)",
+      "Bash(ls Scalance.App.exe Scalance.App.dll *.pdf)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "input=$(cat); echo \"=== $(date) ===\" >> /tmp/claude-hook-check.txt; echo \"$input\" >> /tmp/claude-hook-check.txt; echo \"---\" >> /tmp/claude-hook-check.txt; cmd=$(echo \"$input\" | grep -oE '\"command\"[[:space:]]*:[[:space:]]*\"[^\"]*\"' | head -1 | sed 's/.*: *\"//; s/\"$//'); echo \"extracted_cmd: $cmd\" >> /tmp/claude-hook-check.txt; echo \"$cmd\" | grep -qiE 'dotnet[^[:space:]]*[[:space:]]+build' && (echo MATCHED >> /tmp/claude-hook-check.txt; powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:/Users/USER_2/Downloads/siemens_ai_tools/verify.ps1') || echo NO_MATCH >> /tmp/claude-hook-check.txt",
+            "shell": "bash",
+            "timeout": 300,
+            "statusMessage": "verify.ps1 (build + test + CLI coverage)"
+          }
+        ]
+      }
+    ]
+  }
+}

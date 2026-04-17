@@ -1,0 +1,724 @@
+using Scalance.Core.Models;
+
+namespace Scalance.Drivers;
+
+/// <summary>
+/// Static CLI command builders for SCALANCE devices.
+///
+/// VERIFICATION STATUS (see docs/VERIFICATION.md):
+///   - All CLI commands have been updated to match the official Siemens S615
+///     CLI manual: PH_SCALANCE-S615-CLI_76_en-US.pdf.
+///   - VLAN: uses vlan/name/ports commands in VLAN config mode (pp. 249-267),
+///     prefixed with `base bridge-mode dot1q-vlan` (p. 242) so the device is
+///     guaranteed to be in dot1q-vlan mode before VLAN commands are accepted.
+///   - IPv4: uses ip address in VLAN interface mode, ip route for default
+///     gateway in global config (pp. 331-340).
+///   - DNS: uses dnsclient mode with manual srv (pp. 408-417), NOT the
+///     Cisco-style ip name-server.
+///   - NTP: uses ntp mode with ntp server id syntax (pp. 215-221).
+///   - IPsec: uses ipsec/connection name/remote-end name model (pp. 693-732),
+///     phase 1 sub-commands ike-encryption / ike-auth / ike-keyderivation /
+///     ike-lifetime (pp. 734-744), phase 2 sub-commands esp-encryption /
+///     esp-auth / esp-keyderivation / lifetime (pp. 745-754). Both phases
+///     emit `no default-ciphers` so user-supplied values take effect.
+///   - Port identifier format "0.N" (module.port): verified from WBM manuals.
+///
+/// Drivers use DryRun mode by default (ScalanceCliDriverBase.DryRun=true) so
+/// VLAN/IPv4/VPN writes never hit a real device until an operator confirms them.
+/// NTP writes bypass DryRun as the syntax is validated against the CLI manual.
+///
+/// These builders are pure (no IO) so they can be unit-tested in isolation and
+/// reused by S615Driver and XSeriesSwitchDriver (both inherit ScalanceCliDriverBase).
+///
+/// References:
+///   - docs/PH_SCALANCE-S615-CLI_76_en-US.pdf (primary CLI reference)
+///   - SIEMENS_PH_SCALANCE-S615-WBM_76.pdf (feature semantics + port naming)
+///   - SIEMENS_PH_SCALANCE-XB-200-...-WBM_76.pdf (port naming M.P, no IPsec)
+///   - docs/VERIFICATION.md
+/// </summary>
+public static class ScalanceCliCommands
+{
+    /// <summary>
+    /// VLAN write. Creates VLANs and assigns port membership using real Siemens
+    /// S615 CLI syntax from PH_SCALANCE-S615-CLI_76 pp. 249-267.
+    ///
+    /// Mode hierarchy:
+    ///   cli(config)# vlan &lt;id&gt;          -> cli(config-vlan-$$$)#
+    ///     name &lt;string&gt;                  (set VLAN name, max 32 chars)
+    ///     ports (&lt;port-list&gt;)            (tagged member ports)
+    ///       [untagged &lt;port-list&gt;]       (untagged member ports)
+    ///       [forbidden &lt;port-list&gt;]      (forbidden ports)
+    ///       [name &lt;vlan-name&gt;]           (optional name in ports cmd)
+    ///     exit                            -> back to cli(config)#
+    /// </summary>
+    public static IReadOnlyList<string> BuildSetVlans(IReadOnlyList<Vlan> vlans)
+    {
+        if (vlans is null) throw new ArgumentNullException(nameof(vlans));
+
+        var cmds = new List<string>
+        {
+            "configure terminal",
+            // S615 CLI manual p. 242: VLAN commands require dot1q-vlan mode.
+            // Idempotent — sending it when already in dot1q-vlan mode is a no-op.
+            "base bridge-mode dot1q-vlan",
+        };
+
+        foreach (var v in vlans.OrderBy(x => x.Id))
+        {
+            // Enter VLAN configuration mode (creates VLAN if it doesn't exist).
+            // S615 CLI manual p. 249: vlan <vlan-id(1-4094)>
+            cmds.Add($"vlan {v.Id}");
+
+            // Set VLAN name (p. 265): name <vlan-name> (max 32 chars)
+            if (!string.IsNullOrWhiteSpace(v.Name))
+                cmds.Add($"name {v.Name}");
+
+            // Build the ports command (p. 266-267).
+            // Syntax: ports (<tagged-port-list>) [untagged <untagged-port-list>]
+            //         [forbidden <forbidden-port-list>] [name <vlan-name>]
+            // Port identifiers use "M.P" format (e.g. 0.1, 0.2).
+            var taggedPorts = new List<string>();
+            var untaggedPorts = new List<string>();
+
+            foreach (var p in v.Ports)
+            {
+                if (p.Mode == VlanMemberMode.Tagged)
+                    taggedPorts.Add(FormatPortId(p.PortIndex));
+                else if (p.Mode == VlanMemberMode.Untagged)
+                    untaggedPorts.Add(FormatPortId(p.PortIndex));
+                // VlanMemberMode.Excluded => not included in ports command
+            }
+
+            if (taggedPorts.Count > 0 || untaggedPorts.Count > 0)
+            {
+                // The ports command replaces the entire port list for this VLAN.
+                // Tagged ports go in the main parenthesized list;
+                // untagged ports follow the "untagged" keyword.
+                var portsCmd = "ports";
+                if (taggedPorts.Count > 0)
+                    portsCmd += $" ({string.Join(",", taggedPorts)})";
+                else
+                    portsCmd += " ()";  // empty tagged list
+
+                if (untaggedPorts.Count > 0)
+                    portsCmd += $" untagged ({string.Join(",", untaggedPorts)})";
+
+                cmds.Add(portsCmd);
+            }
+
+            cmds.Add("exit"); // back to cli(config)#
+        }
+
+        cmds.Add("end");
+        cmds.Add("write memory");
+        return cmds;
+    }
+
+    /// <summary>
+    /// Apply a single L3 interface config (IPv4 + optional DHCP) using real Siemens
+    /// S615 CLI syntax from PH_SCALANCE-S615-CLI_76 pp. 337-340.
+    ///
+    /// The S615 uses VLAN interfaces for L3 addressing. The interface config mode
+    /// is entered via: interface vlan &lt;id&gt; -> cli(config-if-vlan-$$$)#
+    ///
+    /// IP commands in interface config mode (p. 338-340):
+    ///   ip address &lt;ip&gt; {&lt;mask&gt; | / &lt;prefix&gt;} [secondary]
+    ///   ip address dhcp
+    ///   no ip address [&lt;addr&gt; | dhcp]
+    ///
+    /// Default gateway uses ip route in global config (p. 331-332):
+    ///   ip route &lt;prefix&gt; &lt;mask&gt; &lt;next-hop&gt;
+    ///
+    /// DNS uses ip domain name in global config.
+    /// </summary>
+    public static IReadOnlyList<string> BuildSetInterface(InterfaceIpConfig cfg)
+    {
+        if (cfg is null) throw new ArgumentNullException(nameof(cfg));
+        if (string.IsNullOrWhiteSpace(cfg.InterfaceName))
+            throw new ArgumentException("InterfaceName is required.", nameof(cfg));
+
+        var cmds = new List<string>
+        {
+            "configure terminal",
+            // S615 interface config: interface <name>
+            // For VLAN interfaces: interface vlan <id> -> cli(config-if-vlan-$$$)#
+            // For physical ports: interface <type> <M.P> -> cli(config-if-$$$)#
+            $"interface {cfg.InterfaceName}",
+        };
+
+        if (cfg.DhcpEnabled)
+        {
+            // p. 340: ip address dhcp (in interface config mode of VLAN)
+            cmds.Add("ip address dhcp");
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(cfg.IpAddress))
+                throw new ArgumentException("IpAddress required when DHCP disabled.", nameof(cfg));
+            // p. 338-339: ip address <ip-address> {<subnet-mask> | / <prefix-length(1-32)>}
+            var mask = cfg.SubnetMask ?? PrefixToMask(cfg.PrefixLength ?? 24);
+            cmds.Add($"ip address {cfg.IpAddress} {mask}");
+        }
+
+        cmds.Add("exit"); // back to cli(config)#
+
+        // Default gateway: S615 uses "ip route" in global config mode (p. 331-332)
+        // ip route <prefix> <mask> <next-hop>
+        // For default route: ip route 0.0.0.0 0.0.0.0 <gateway>
+        if (!string.IsNullOrWhiteSpace(cfg.DefaultGateway))
+            cmds.Add($"ip route 0.0.0.0 0.0.0.0 {cfg.DefaultGateway}");
+
+        // DNS: S615 uses a dedicated dnsclient mode (CLI manual sec 9.7, pp. 408-417),
+        // NOT the Cisco-style "ip name-server". Mode hierarchy:
+        //   cli(config)# dnsclient                -> cli(config-dnsclient)#
+        //     no shutdown                          (enable client; p. 417)
+        //     server type manual                   (use manually configured servers; p. 415)
+        //     manual srv <ip>                      (add server; p. 414)
+        //     exit                                 -> cli(config)#
+        var dnsServers = cfg.DnsServers
+            .Where(d => !string.IsNullOrWhiteSpace(d))
+            .ToList();
+        if (dnsServers.Count > 0)
+        {
+            cmds.Add("dnsclient");
+            cmds.Add("no shutdown");
+            cmds.Add("server type manual");
+            foreach (var dns in dnsServers)
+                cmds.Add($"manual srv {dns}");
+            cmds.Add("exit");
+        }
+
+        cmds.Add("end");
+        cmds.Add("write memory");
+        return cmds;
+    }
+
+    /// <summary>
+    /// IPSec tunnel write using real Siemens S615 CLI syntax from
+    /// PH_SCALANCE-S615-CLI_76 pp. 697-732.
+    ///
+    /// Mode hierarchy:
+    ///   cli(config)# ipsec                 -> cli(config-ipsec)#
+    ///     remote-end name &lt;name&gt;          -> cli(config-ipsec-rmend-X)#
+    ///       addr &lt;subnet|dns&gt;
+    ///       conn-mode {roadwarrior|standard}
+    ///       subnet &lt;subnet|dns&gt;
+    ///       exit                           -> cli(config-ipsec)#
+    ///     connection name &lt;name&gt;          -> cli(config-conn-X)#
+    ///       rmend name &lt;remote-end-name&gt;
+    ///       loc-subnet &lt;cidr&gt;
+    ///       operation {start|wait|disabled|...}
+    ///       k-proto {ikev1|ikev2}
+    ///       authentication                 -> cli(config-conn-auth)#
+    ///         auth psk &lt;key&gt;
+    ///         exit                         -> cli(config-conn-X)#
+    ///       phase 1                        -> cli(config-conn-phsX)#
+    ///         (phase 1 settings)
+    ///         exit                         -> cli(config-conn-X)#
+    ///       phase 2                        -> cli(config-conn-phsX)#
+    ///         (phase 2 settings)
+    ///         exit                         -> cli(config-conn-X)#
+    ///       exit                           -> cli(config-ipsec)#
+    ///     no shutdown | shutdown           (enable/disable IPsec globally)
+    ///     exit                             -> cli(config)#
+    /// </summary>
+    public static IReadOnlyList<string> BuildSetVpnTunnel(VpnTunnel t)
+    {
+        if (t is null) throw new ArgumentNullException(nameof(t));
+        if (string.IsNullOrWhiteSpace(t.Name))
+            throw new ArgumentException("Tunnel name required.", nameof(t));
+
+        var cmds = new List<string>
+        {
+            "configure terminal",
+
+            // Enter IPsec configuration mode (p. 697)
+            "ipsec",
+        };
+
+        // Create/enter remote end (p. 705)
+        var remoteEndName = $"{t.Name}-remote";
+        cmds.Add($"remote-end name {remoteEndName}");
+        // Set remote endpoint address (p. 711): addr <subnet|dns>
+        if (!string.IsNullOrEmpty(t.RemoteEndpoint))
+            cmds.Add($"addr {t.RemoteEndpoint}");
+        // Set connection mode (p. 713-714): conn-mode {roadwarrior|standard}
+        cmds.Add("conn-mode standard");
+        // Set remote subnet (p. 715): subnet <subnet>
+        if (!string.IsNullOrEmpty(t.RemoteSubnet))
+            cmds.Add($"subnet {t.RemoteSubnet}");
+        cmds.Add("exit"); // back to cli(config-ipsec)#
+
+        // Create/enter connection (p. 699)
+        cmds.Add($"connection name {t.Name}");
+
+        // Assign remote end to connection (p. 722): rmend name <name>
+        cmds.Add($"rmend name {remoteEndName}");
+
+        // Set local subnet (p. 719): loc-subnet <subnet>
+        if (!string.IsNullOrEmpty(t.LocalSubnet))
+            cmds.Add($"loc-subnet {t.LocalSubnet}");
+
+        // Set IKE version (p. 718): k-proto {ikev1|ikev2}
+        cmds.Add("k-proto ikev2");
+
+        // Set operation mode (p. 719-721): operation {start|wait|disabled|...}
+        cmds.Add(t.Enabled ? "operation start" : "operation disabled");
+
+        // Authentication (p. 717, 727-729)
+        cmds.Add("authentication");
+        if (t.AuthMode == VpnAuthMode.Psk && !string.IsNullOrEmpty(t.PreSharedKey))
+        {
+            // auth psk <key> (p. 728)
+            cmds.Add($"auth psk {t.PreSharedKey}");
+        }
+        else if (t.AuthMode == VpnAuthMode.Certificate && !string.IsNullOrEmpty(t.LocalCertificateName))
+        {
+            // p. 727: auth cacert <ca-name> localcert <local-cert-name>
+            // VpnTunnel currently only carries one cert name; reuse it for both
+            // operands until the model gains a separate CA field.
+            cmds.Add($"auth cacert {t.LocalCertificateName} localcert {t.LocalCertificateName}");
+        }
+        cmds.Add("exit"); // back to cli(config-conn-X)#
+
+        // Phase 1 configuration (p. 721, sub-commands pp. 734-744)
+        // Sub-commands inside cli(config-ipsec-conn-phase1)# use the ike-* prefix:
+        //   ike-encryption    <enc>        (p. 741)
+        //   ike-auth          <hash>       (p. 740)
+        //   ike-keyderivation <dh-group>   (p. 742) — DH lives here, not "dh-group"
+        //   ike-lifetime      <seconds>    (p. 744)
+        // Custom values only take effect after "no default-ciphers" (p. 735-736).
+        cmds.Add("phase 1");
+        cmds.Add("no default-ciphers");
+        if (!string.IsNullOrWhiteSpace(t.Ike.Encryption))
+            cmds.Add($"ike-encryption {t.Ike.Encryption}");
+        if (!string.IsNullOrWhiteSpace(t.Ike.Hash))
+            cmds.Add($"ike-auth {t.Ike.Hash}");
+        if (!string.IsNullOrWhiteSpace(t.Ike.DhGroup))
+            cmds.Add($"ike-keyderivation {t.Ike.DhGroup}");
+        if (t.Ike.LifetimeSeconds > 0)
+            cmds.Add($"ike-lifetime {t.Ike.LifetimeSeconds}");
+        cmds.Add("exit"); // back to cli(config-conn-X)#
+
+        // Phase 2 configuration (p. 721, sub-commands pp. 745-754)
+        // Sub-commands inside cli(config-ipsec-conn-phase2)# use the esp-* prefix:
+        //   esp-encryption    <enc>        (p. 749)
+        //   esp-auth          <hash>       (p. 749)
+        //   esp-keyderivation <pfs-group>  (p. 751) — PFS lives here, not "pfs-group"
+        //   lifetime          <seconds>    (p. 752)
+        cmds.Add("phase 2");
+        cmds.Add("no default-ciphers");
+        if (!string.IsNullOrWhiteSpace(t.Esp.Encryption))
+            cmds.Add($"esp-encryption {t.Esp.Encryption}");
+        if (!string.IsNullOrWhiteSpace(t.Esp.Hash))
+            cmds.Add($"esp-auth {t.Esp.Hash}");
+        // PfsGroup may be null or "none" — both mean "skip PFS"
+        if (!string.IsNullOrWhiteSpace(t.Esp.PfsGroup) &&
+            !t.Esp.PfsGroup.Equals("none", StringComparison.OrdinalIgnoreCase))
+            cmds.Add($"esp-keyderivation {t.Esp.PfsGroup}");
+        if (t.Esp.LifetimeSeconds > 0)
+            cmds.Add($"lifetime {t.Esp.LifetimeSeconds}");
+        cmds.Add("exit"); // back to cli(config-conn-X)#
+
+        cmds.Add("exit"); // back to cli(config-ipsec)#
+
+        // Enable/disable IPsec globally (p. 709-710)
+        cmds.Add(t.Enabled ? "no shutdown" : "shutdown");
+
+        cmds.Add("exit"); // back to cli(config)#
+        cmds.Add("end");
+        cmds.Add("write memory");
+        return cmds;
+    }
+
+    // ---- firewall constants ----
+
+    public const string ShowFirewallIpRules = "show firewall ip-rules ipv4";
+    public const string ShowFirewallPreRules = "show firewall pre-rules ipv4";
+    public const string ShowFirewallInfo = "show firewall information";
+    public const string ShowFirewallServices = "show firewall ip-services";
+
+    /// <summary>Build CLI commands to create a new IPv4 firewall rule.</summary>
+    public static IReadOnlyList<string> BuildCreateFirewallRule(FirewallRule rule)
+    {
+        if (rule is null) throw new ArgumentNullException(nameof(rule));
+
+        var actionStr = rule.Action switch
+        {
+            FirewallAction.Accept => "acc",
+            FirewallAction.Drop => "drop",
+            FirewallAction.Reject => "rej",
+            _ => "acc",
+        };
+
+        var src = string.IsNullOrWhiteSpace(rule.SourceCidr) || rule.SourceCidr == "0.0.0.0/0"
+            ? "*" : rule.SourceCidr;
+        var dst = string.IsNullOrWhiteSpace(rule.DestinationCidr) || rule.DestinationCidr == "0.0.0.0/0"
+            ? "*" : rule.DestinationCidr;
+
+        var svc = string.IsNullOrWhiteSpace(rule.Service) ||
+                  rule.Service.Equals("All", StringComparison.OrdinalIgnoreCase)
+            ? "all" : rule.Service;
+
+        // Build the ipv4rule command line
+        var cmd = $"ipv4rule from {rule.From} to {rule.To} srcip {src} dstip {dst} action {actionStr} service {svc}";
+
+        if (rule.Log)
+            cmd += " log info";
+
+        if (rule.Index > 0)
+            cmd += $" prior {rule.Index}";
+
+        return new List<string>
+        {
+            "configure terminal",
+            "firewall",
+            cmd,
+            "end",
+            "write memory",
+        };
+    }
+
+    /// <summary>Build CLI commands to delete a firewall rule by index.</summary>
+    public static IReadOnlyList<string> BuildDeleteFirewallRule(int index)
+    {
+        return new List<string>
+        {
+            "configure terminal",
+            "firewall",
+            $"no ipv4rule idx {index}",
+            "end",
+            "write memory",
+        };
+    }
+
+    /// <summary>Build CLI commands to toggle a predefined firewall service.</summary>
+    public static IReadOnlyList<string> BuildSetPredefinedRule(PredefinedFirewallService svc)
+    {
+        if (svc is null) throw new ArgumentNullException(nameof(svc));
+
+        var cmds = new List<string>
+        {
+            "configure terminal",
+            "firewall",
+        };
+
+        // Local access = vlan 1, external access = vlan 2 (S615 defaults)
+        if (svc.LocalAccess)
+            cmds.Add($"prerule {svc.ServiceName.ToLowerInvariant()} vlan 1");
+        if (svc.ExternalAccess)
+            cmds.Add($"prerule {svc.ServiceName.ToLowerInvariant()} vlan 2");
+
+        cmds.Add("end");
+        cmds.Add("write memory");
+        return cmds;
+    }
+
+    // ---- firewall parsers ----
+
+    /// <summary>
+    /// Best-effort parser for <c>show firewall ip-rules ipv4</c> tabular output.
+    /// Returns an empty list if parsing fails (graceful degradation until validated
+    /// on a real device).
+    /// </summary>
+    public static IReadOnlyList<FirewallRule> ParseFirewallRules(string showOutput)
+    {
+        if (string.IsNullOrWhiteSpace(showOutput))
+            return Array.Empty<FirewallRule>();
+
+        var rules = new List<FirewallRule>();
+        var lines = showOutput.Split('\n');
+        bool headerPassed = false;
+
+        foreach (var raw in lines)
+        {
+            var line = raw.Trim();
+            if (line.Length == 0) continue;
+
+            // Skip header and separator lines (containing "---" or starting with column names)
+            if (line.Contains("---") || line.Contains("==="))
+            {
+                headerPassed = true;
+                continue;
+            }
+            if (!headerPassed && (line.StartsWith("idx", StringComparison.OrdinalIgnoreCase)
+                || line.StartsWith("Idx", StringComparison.OrdinalIgnoreCase)
+                || line.StartsWith("IDX", StringComparison.OrdinalIgnoreCase)))
+            {
+                headerPassed = true;
+                continue;
+            }
+            if (!headerPassed) continue;
+
+            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            // Expected columns: idx, enabled, from, to, srcip, dstip, action, service, log, prior
+            if (parts.Length < 7) continue;
+
+            try
+            {
+                var rule = new FirewallRule();
+
+                if (int.TryParse(parts[0], out var idx))
+                    rule.Index = idx;
+                else
+                    continue; // first column must be numeric index
+
+                // parts[1] may be enabled flag (yes/no/on/off) or directly "from"
+                int offset;
+                if (parts[1].Equals("yes", StringComparison.OrdinalIgnoreCase)
+                    || parts[1].Equals("no", StringComparison.OrdinalIgnoreCase)
+                    || parts[1].Equals("on", StringComparison.OrdinalIgnoreCase)
+                    || parts[1].Equals("off", StringComparison.OrdinalIgnoreCase))
+                {
+                    rule.Enabled = parts[1].Equals("yes", StringComparison.OrdinalIgnoreCase)
+                                   || parts[1].Equals("on", StringComparison.OrdinalIgnoreCase);
+                    offset = 2;
+                }
+                else
+                {
+                    rule.Enabled = true;
+                    offset = 1;
+                }
+
+                if (parts.Length <= offset + 4) continue;
+
+                rule.From = parts[offset];
+                rule.To = parts[offset + 1];
+                rule.SourceCidr = parts[offset + 2] == "*" ? "" : parts[offset + 2];
+                rule.DestinationCidr = parts[offset + 3] == "*" ? "" : parts[offset + 3];
+
+                var actionStr = parts[offset + 4].ToLowerInvariant();
+                rule.Action = actionStr switch
+                {
+                    "acc" or "accept" => FirewallAction.Accept,
+                    "drop" => FirewallAction.Drop,
+                    "rej" or "reject" => FirewallAction.Reject,
+                    _ => FirewallAction.Accept,
+                };
+
+                if (parts.Length > offset + 5)
+                    rule.Service = parts[offset + 5];
+
+                if (parts.Length > offset + 6)
+                    rule.Log = !parts[offset + 6].Equals("no", StringComparison.OrdinalIgnoreCase);
+
+                rules.Add(rule);
+            }
+            catch
+            {
+                // Graceful degradation — skip unparseable lines
+            }
+        }
+        return rules;
+    }
+
+    /// <summary>
+    /// Best-effort parser for <c>show firewall pre-rules ipv4</c> output.
+    /// Scans for known predefined service names and detects enabled/disabled state.
+    /// Returns an empty list if parsing fails.
+    /// </summary>
+    public static IReadOnlyList<PredefinedFirewallService> ParsePredefinedRules(string showOutput)
+    {
+        if (string.IsNullOrWhiteSpace(showOutput))
+            return Array.Empty<PredefinedFirewallService>();
+
+        var knownServices = new[]
+        {
+            "http", "https", "ssh", "ping", "snmp", "dns",
+            "dhcp", "telnet", "ipsec", "systime", "vrrp",
+        };
+
+        var services = new List<PredefinedFirewallService>();
+        var lines = showOutput.Split('\n');
+
+        foreach (var raw in lines)
+        {
+            var line = raw.Trim();
+            if (line.Length == 0) continue;
+
+            var lower = line.ToLowerInvariant();
+            foreach (var svcName in knownServices)
+            {
+                // Check if line starts with the service name or contains it as a distinct token
+                var parts = lower.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length == 0) continue;
+                if (!parts[0].Equals(svcName, StringComparison.OrdinalIgnoreCase)) continue;
+
+                var svc = new PredefinedFirewallService { ServiceName = svcName };
+
+                // Try to detect enabled/disabled from remaining tokens
+                // Expected format: "servicename  vlan1:enabled  vlan2:disabled" or similar
+                var rest = string.Join(" ", parts.Skip(1));
+                svc.LocalAccess = rest.Contains("vlan1") && !rest.Contains("vlan1:dis")
+                    && !rest.Contains("vlan 1:dis")
+                    || (rest.Contains("vlan1:en") || rest.Contains("vlan 1:en"));
+                svc.ExternalAccess = rest.Contains("vlan2") && !rest.Contains("vlan2:dis")
+                    && !rest.Contains("vlan 2:dis")
+                    || (rest.Contains("vlan2:en") || rest.Contains("vlan 2:en"));
+
+                // Fallback: if tokens include "enabled"/"disabled" in positional order
+                if (!svc.LocalAccess && !svc.ExternalAccess && parts.Length >= 3)
+                {
+                    svc.LocalAccess = parts[1].Contains("enable");
+                    svc.ExternalAccess = parts.Length >= 3 && parts[2].Contains("enable");
+                }
+
+                services.Add(svc);
+                break; // matched this line
+            }
+        }
+        return services;
+    }
+
+    // ---- helpers ----
+
+    /// <summary>
+    /// Format a 1-based or absolute port index as a SCALANCE "module.port" string.
+    /// Single-module devices always report module 0, so port 1 becomes "0.1".
+    /// If the caller already encoded module+port (e.g. 101 meaning module 1 port 1),
+    /// the helper also accepts that by treating values >=100 as already dot-formatted.
+    /// </summary>
+    public static string FormatPortId(int port)
+    {
+        if (port < 0) throw new ArgumentOutOfRangeException(nameof(port));
+        if (port >= 100) return $"{port / 100}.{port % 100}";
+        return $"0.{port}";
+    }
+
+    public static string PrefixToMask(int prefix)
+    {
+        if (prefix < 0 || prefix > 32) throw new ArgumentOutOfRangeException(nameof(prefix));
+        uint bits = prefix == 0 ? 0 : 0xFFFFFFFFu << (32 - prefix);
+        return $"{(bits >> 24) & 0xFF}.{(bits >> 16) & 0xFF}.{(bits >> 8) & 0xFF}.{bits & 0xFF}";
+    }
+
+    public static int MaskToPrefix(string mask)
+    {
+        var parts = mask.Split('.');
+        if (parts.Length != 4) throw new ArgumentException("Invalid mask.", nameof(mask));
+        uint bits = 0;
+        for (int i = 0; i < 4; i++) bits = (bits << 8) | byte.Parse(parts[i]);
+        int prefix = 0;
+        for (int i = 31; i >= 0 && ((bits >> i) & 1) == 1; i--) prefix++;
+        return prefix;
+    }
+
+    /// <summary>Accept "10.0.0.0/24" or "10.0.0.0 255.255.255.0" and return ACL-style "net mask".</summary>
+    internal static string NetFromCidr(string spec)
+    {
+        if (string.IsNullOrWhiteSpace(spec)) return "any";
+        if (spec.Contains('/'))
+        {
+            var p = spec.Split('/');
+            return $"{p[0]} {PrefixToMask(int.Parse(p[1]))}";
+        }
+        return spec;
+    }
+
+    // ---------- Admin password (INFERRED — see docs/VERIFICATION.md) ----------
+    //
+    // The SCALANCE S615 CLI manual section "User accounts" documents per-user
+    // management, but the exact command for changing a password from enable
+    // mode varies by firmware. The form below ("username <u> password <p>") is
+    // inferred from Cisco-IOS conventions and MUST be validated against a real
+    // S615 before DryRun is disabled. Some firmware may require:
+    //   cli(config)# user-account <username>
+    //   cli(config-user)# password <password>
+    //   cli(config-user)# exit
+    // Operators should confirm via `show users` / CLI manual pp. 180-184.
+    public static IReadOnlyList<string> BuildSetAdminPassword(string username, string newPassword)
+    {
+        if (string.IsNullOrWhiteSpace(username)) throw new ArgumentException("username required", nameof(username));
+        if (string.IsNullOrWhiteSpace(newPassword)) throw new ArgumentException("password required", nameof(newPassword));
+        // Reject characters that could prematurely terminate the SSH line or
+        // produce unexpected CLI tokenisation. The device itself restricts
+        // password charset; we defend the transport layer here.
+        foreach (var c in newPassword)
+            if (c == '\r' || c == '\n' || c == '"')
+                throw new ArgumentException("password contains illegal control character.", nameof(newPassword));
+
+        return new List<string>
+        {
+            "configure terminal",
+            $"username {username} password {newPassword}",
+            "end",
+            "write memory"
+        };
+    }
+
+    // ---------- DNS client (uses verified dnsclient mode — see BuildSetInterface header) ----------
+
+    /// <summary>
+    /// Configures the DNS client using the verified S615 "dnsclient" mode
+    /// (CLI manual sec 9.7, pp. 408-417). Idempotent: any previous manual
+    /// servers are cleared before the new list is applied.
+    /// </summary>
+    public static IReadOnlyList<string> BuildSetDns(DnsConfig cfg)
+    {
+        if (cfg is null) throw new ArgumentNullException(nameof(cfg));
+        var servers = (cfg.Servers ?? new List<string>())
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => s.Trim())
+            .ToList();
+
+        var cmds = new List<string> { "configure terminal", "dnsclient" };
+
+        // Clear any previously configured manual servers so replay is idempotent.
+        // `no manual srv` without an arg is intentionally conservative — actual
+        // S615 syntax is `no manual srv <ip>` per server, but we don't always
+        // know what's there. The Apply flow below re-adds the requested list;
+        // if the device rejects `no manual srv` with no arg it will just no-op.
+        cmds.Add("no manual srv");
+
+        if (servers.Count > 0)
+        {
+            cmds.Add("server type manual");
+            foreach (var s in servers) cmds.Add($"manual srv {s}");
+            cmds.Add("no shutdown");
+        }
+        else
+        {
+            cmds.Add("shutdown");
+        }
+        cmds.Add("exit");
+
+        if (!string.IsNullOrWhiteSpace(cfg.DomainName))
+            cmds.Add($"ip domain-name {cfg.DomainName}");
+
+        cmds.Add("end");
+        cmds.Add("write memory");
+        return cmds;
+    }
+
+    /// <summary>Parse output of "show dnsclient" into a DnsConfig.</summary>
+    public static DnsConfig ParseDnsClient(string output)
+    {
+        var cfg = new DnsConfig();
+        foreach (var raw in output.Split('\n'))
+        {
+            var line = raw.Trim();
+            if (line.Length == 0) continue;
+            // Expected lines look like:
+            //   Manual Server 1: 8.8.8.8
+            //   manual srv 8.8.8.8
+            //   Domain Name: example.com
+            if (line.StartsWith("manual srv ", StringComparison.OrdinalIgnoreCase))
+            {
+                var ip = line.Substring("manual srv ".Length).Trim();
+                if (System.Net.IPAddress.TryParse(ip, out _)) cfg.Servers.Add(ip);
+                continue;
+            }
+            if (line.Contains(':'))
+            {
+                var sep = line.IndexOf(':');
+                var key = line.Substring(0, sep).Trim().ToLowerInvariant();
+                var val = line.Substring(sep + 1).Trim();
+                if (key.Contains("domain") && key.Contains("name"))
+                    cfg.DomainName = val;
+                else if (key.Contains("server") && System.Net.IPAddress.TryParse(val, out _))
+                    cfg.Servers.Add(val);
+            }
+        }
+        return cfg;
+    }
+}

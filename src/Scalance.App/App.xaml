@@ -1,0 +1,26 @@
+<Application x:Class="Scalance.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Scalance.App"
+             xmlns:conv="clr-namespace:Scalance.App.Converters">
+    <Application.Resources>
+        <ResourceDictionary>
+            <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+            <conv:StringNotEmptyConverter x:Key="StringNotEmpty"/>
+            <conv:EnumEqualsVisibilityConverter x:Key="EqualsConverter"/>
+            <Style TargetType="Button">
+                <Setter Property="Padding" Value="10,4"/>
+                <Setter Property="Margin" Value="4"/>
+                <Setter Property="MinWidth" Value="80"/>
+            </Style>
+            <Style TargetType="TextBox">
+                <Setter Property="Padding" Value="4,2"/>
+                <Setter Property="Margin" Value="2"/>
+            </Style>
+            <Style TargetType="ComboBox">
+                <Setter Property="Padding" Value="4,2"/>
+                <Setter Property="Margin" Value="2"/>
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

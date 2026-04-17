@@ -1,0 +1,67 @@
+<UserControl x:Class="Scalance.App.Views.DiscoveryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Margin="0,0,0,4" TextWrapping="Wrap"
+                   Text="PROFINET DCP Identify-All 探索。需要 Windows 主機已安裝 Npcap。請選擇與 SCALANCE 位於同一 L2 網段的乙太網卡；DCP 是 L2 協定（Ethertype 0x8892，多播位址 01:0E:CF:00:00:00），回應只會在該實體網段傳遞。Set-IP 與閃燈指令同為 L2 單播 DCP 封包，即使目標設備與網卡位於不同 IP 子網仍可運作。"/>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+            <TextBlock Text="網卡：" VerticalAlignment="Center" Margin="0,0,6,0"/>
+            <ComboBox Width="420"
+                      ItemsSource="{Binding Adapters}"
+                      SelectedItem="{Binding SelectedAdapter, Mode=TwoWay}"
+                      DisplayMemberPath="Description"/>
+            <Button Content="重新整理網卡" Margin="8,0,0,0" Command="{Binding RefreshAdaptersCommand}"/>
+            <Separator Width="16"/>
+            <TextBlock Text="逾時（秒）：" VerticalAlignment="Center" Margin="0,0,4,0"/>
+            <TextBox Width="40" Text="{Binding TimeoutSeconds}"/>
+            <Button Content="探索" Margin="8,0,0,0" Command="{Binding DiscoverCommand}"/>
+        </StackPanel>
+
+        <DataGrid Grid.Row="2"
+                  ItemsSource="{Binding Results}"
+                  SelectedItem="{Binding SelectedDevice, Mode=TwoWay}"
+                  AutoGenerateColumns="False" IsReadOnly="True"
+                  HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                  CanUserAddRows="False" SelectionMode="Single">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="站名"         Binding="{Binding NameOfStation}" Width="220"/>
+                <DataGridTextColumn Header="MAC"          Binding="{Binding SourceMac}"     Width="140"/>
+                <DataGridTextColumn Header="IP"           Binding="{Binding IpAddress}"     Width="120"/>
+                <DataGridTextColumn Header="子網遮罩"     Binding="{Binding SubnetMask}"    Width="120"/>
+                <DataGridTextColumn Header="閘道"         Binding="{Binding Gateway}"       Width="120"/>
+                <DataGridTextColumn Header="廠商"         Binding="{Binding VendorName}"    Width="140"/>
+                <DataGridTextColumn Header="廠商 ID"      Binding="{Binding VendorId}"      Width="80"/>
+                <DataGridTextColumn Header="設備 ID"      Binding="{Binding DeviceId}"      Width="80"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,8,0,0">
+            <CheckBox IsChecked="{Binding DryRun, Mode=TwoWay}" VerticalAlignment="Center"
+                      ToolTip="勾選時，Set-IP 與閃燈封包只會記錄而不實際傳送；取消勾選才會真正送出。">
+                <TextBlock Text="DryRun（只預覽 DCP 封包不送出）" FontWeight="Bold"/>
+            </CheckBox>
+            <Separator Width="16"/>
+            <Button Content="閃燈（Flash LED）" Margin="0,0,8,0" Padding="12,4" Command="{Binding FlashLedCommand}"/>
+            <Button Content="設定 IP..."        Margin="0,0,8,0" Padding="12,4" Command="{Binding SetIpCommand}"/>
+            <Button Content="新增至設備清單"    Padding="12,4" Command="{Binding AddToDevicesCommand}"
+                    ToolTip="將選取的探索結果新增至設備清單，開啟編輯視窗確認後儲存。"/>
+            <TextBlock VerticalAlignment="Center" Margin="16,0,0,0" Opacity="0.7"
+                       Text="請先在上方清單選取設備以啟用操作。"/>
+        </StackPanel>
+
+        <StatusBar Grid.Row="4">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}"/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</UserControl>

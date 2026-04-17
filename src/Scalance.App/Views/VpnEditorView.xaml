@@ -1,0 +1,153 @@
+<UserControl x:Class="Scalance.App.Views.VpnEditorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="0">
+            <TextBlock Text="設備：" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding SelectedDeviceName, FallbackValue=(無)}" FontWeight="Bold" VerticalAlignment="Center"/>
+            <Separator Width="16"/>
+            <Button Content="載入"         Command="{Binding LoadCommand}"       Margin="4,0"/>
+            <Button Content="新增"         Command="{Binding AddTunnelCommand}"  Margin="4,0"/>
+            <Button Content="移除"         Command="{Binding RemoveTunnelCommand}" Margin="4,0"/>
+            <Button Content="套用選取項目" Command="{Binding ApplyCommand}"      Margin="12,0,4,0"/>
+        </StackPanel>
+
+        <Grid Grid.Row="1" Margin="0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <DataGrid Grid.Column="0"
+                      ItemsSource="{Binding Tunnels}"
+                      SelectedItem="{Binding SelectedTunnel}"
+                      AutoGenerateColumns="False" IsReadOnly="True"
+                      HeadersVisibility="Column" CanUserAddRows="False">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="名稱"       Binding="{Binding Name}"           Width="*"/>
+                    <DataGridCheckBoxColumn Header="啟用"   Binding="{Binding Enabled}"        Width="60"/>
+                    <DataGridTextColumn Header="對端"       Binding="{Binding RemoteEndpoint}" Width="*"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto"
+                          DataContext="{Binding SelectedTunnel}"
+                          IsEnabled="{Binding DataContext.FeatureSupported, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                <StackPanel Margin="12,0,0,0">
+                    <TextBlock Text="通道詳細設定" FontWeight="Bold" Margin="0,0,0,8"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="名稱："/>
+                        <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="啟用："/>
+                        <CheckBox  Grid.Row="1" Grid.Column="1" IsChecked="{Binding Enabled}" Margin="0,2"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="遠端對端："/>
+                        <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding RemoteEndpoint, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="本地子網："/>
+                        <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding LocalSubnet, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"
+                                   ToolTip="例如 192.168.1.0/24"/>
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="遠端子網："/>
+                        <TextBox   Grid.Row="4" Grid.Column="1" Text="{Binding RemoteSubnet, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="驗證模式："/>
+                        <ComboBox  Grid.Row="5" Grid.Column="1"
+                                   ItemsSource="{Binding DataContext.AuthModes, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                   SelectedItem="{Binding AuthMode}" Margin="0,2"/>
+
+                        <TextBlock Grid.Row="6" Grid.Column="0" Text="預共用金鑰："/>
+                        <TextBox   Grid.Row="6" Grid.Column="1" Text="{Binding PreSharedKey, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+
+                        <TextBlock Grid.Row="7" Grid.Column="0" Text="憑證名稱："/>
+                        <TextBox   Grid.Row="7" Grid.Column="1" Text="{Binding LocalCertificateName, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                    </Grid>
+
+                    <TextBlock Text="IKE（Phase 1）" FontWeight="Bold" Margin="0,12,0,4"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="加密："/>
+                        <ComboBox  Grid.Row="0" Grid.Column="1"
+                                   ItemsSource="{Binding DataContext.IkeEncryptionChoices, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                   Text="{Binding IkeEncryption, UpdateSourceTrigger=LostFocus}"
+                                   IsEditable="True" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="雜湊："/>
+                        <ComboBox  Grid.Row="1" Grid.Column="1"
+                                   ItemsSource="{Binding DataContext.IkeHashChoices, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                   Text="{Binding IkeHash, UpdateSourceTrigger=LostFocus}"
+                                   IsEditable="True" Margin="0,2"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="DH 群組："/>
+                        <ComboBox  Grid.Row="2" Grid.Column="1"
+                                   ItemsSource="{Binding DataContext.DhGroupChoices, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                   Text="{Binding DhGroup, UpdateSourceTrigger=LostFocus}"
+                                   IsEditable="True" Margin="0,2"/>
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="存活時間（秒）："/>
+                        <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding IkeLifetime, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                    </Grid>
+
+                    <TextBlock Text="ESP（Phase 2）" FontWeight="Bold" Margin="0,12,0,4"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="加密："/>
+                        <ComboBox  Grid.Row="0" Grid.Column="1"
+                                   ItemsSource="{Binding DataContext.IkeEncryptionChoices, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                   Text="{Binding EspEncryption, UpdateSourceTrigger=LostFocus}"
+                                   IsEditable="True" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="雜湊："/>
+                        <ComboBox  Grid.Row="1" Grid.Column="1"
+                                   ItemsSource="{Binding DataContext.IkeHashChoices, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                   Text="{Binding EspHash, UpdateSourceTrigger=LostFocus}"
+                                   IsEditable="True" Margin="0,2"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="PFS 群組："/>
+                        <ComboBox  Grid.Row="2" Grid.Column="1"
+                                   ItemsSource="{Binding DataContext.DhGroupChoices, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                   Text="{Binding PfsGroup, UpdateSourceTrigger=LostFocus}"
+                                   IsEditable="True" Margin="0,2"/>
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="存活時間（秒）："/>
+                        <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding EspLifetime, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                    </Grid>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <ProgressBar Grid.Row="2" Height="4" IsIndeterminate="{Binding IsBusy}" Margin="0,4"/>
+        <StatusBar Grid.Row="3">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}"/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</UserControl>

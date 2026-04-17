@@ -1,0 +1,52 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Scalance.Core", "Scalance.Core\Scalance.Core.csproj", "{886F88BB-0A8B-4E07-8FAF-D13A196062D8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Scalance.Protocols", "Scalance.Protocols\Scalance.Protocols.csproj", "{8695AE5F-723C-4D8D-81DC-F95CDB356E60}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Scalance.Drivers", "Scalance.Drivers\Scalance.Drivers.csproj", "{A86167EA-FB30-43CA-B043-F08A5C54D77E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Scalance.Data", "Scalance.Data\Scalance.Data.csproj", "{6D1DCB52-4D42-496C-86BB-9BF8686F4698}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Scalance.App", "Scalance.App\Scalance.App.csproj", "{A6036F25-FDB6-415A-B84F-9D0300C3E749}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Scalance.Tests", "..\tests\Scalance.Tests\Scalance.Tests.csproj", "{086ECC0F-CF5A-4249-843B-0A74C834B0CF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{886F88BB-0A8B-4E07-8FAF-D13A196062D8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{886F88BB-0A8B-4E07-8FAF-D13A196062D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{886F88BB-0A8B-4E07-8FAF-D13A196062D8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{886F88BB-0A8B-4E07-8FAF-D13A196062D8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8695AE5F-723C-4D8D-81DC-F95CDB356E60}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8695AE5F-723C-4D8D-81DC-F95CDB356E60}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8695AE5F-723C-4D8D-81DC-F95CDB356E60}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8695AE5F-723C-4D8D-81DC-F95CDB356E60}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A86167EA-FB30-43CA-B043-F08A5C54D77E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A86167EA-FB30-43CA-B043-F08A5C54D77E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A86167EA-FB30-43CA-B043-F08A5C54D77E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A86167EA-FB30-43CA-B043-F08A5C54D77E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6D1DCB52-4D42-496C-86BB-9BF8686F4698}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6D1DCB52-4D42-496C-86BB-9BF8686F4698}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6D1DCB52-4D42-496C-86BB-9BF8686F4698}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6D1DCB52-4D42-496C-86BB-9BF8686F4698}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A6036F25-FDB6-415A-B84F-9D0300C3E749}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A6036F25-FDB6-415A-B84F-9D0300C3E749}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A6036F25-FDB6-415A-B84F-9D0300C3E749}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A6036F25-FDB6-415A-B84F-9D0300C3E749}.Release|Any CPU.Build.0 = Release|Any CPU
+		{086ECC0F-CF5A-4249-843B-0A74C834B0CF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{086ECC0F-CF5A-4249-843B-0A74C834B0CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{086ECC0F-CF5A-4249-843B-0A74C834B0CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{086ECC0F-CF5A-4249-843B-0A74C834B0CF}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

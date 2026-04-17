@@ -1,0 +1,78 @@
+using FluentAssertions;
+using Scalance.Core.Models;
+using Scalance.Drivers;
+
+namespace Scalance.Tests;
+
+public class AdminPasswordDnsTests
+{
+    [Fact]
+    public void BuildSetAdminPassword_wraps_with_configure_and_write()
+    {
+        var cmds = ScalanceCliCommands.BuildSetAdminPassword("admin", "s3cret!");
+
+        cmds[0].Should().Be("configure terminal");
+        cmds.Should().Contain("username admin password s3cret!");
+        cmds.Should().Contain("end");
+        cmds[^1].Should().Be("write memory");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void BuildSetAdminPassword_rejects_blank_password(string pwd)
+    {
+        var act = () => ScalanceCliCommands.BuildSetAdminPassword("admin", pwd);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Theory]
+    [InlineData("line1\nline2")]
+    [InlineData("has\rcr")]
+    [InlineData("quoted \"thing\"")]
+    public void BuildSetAdminPassword_rejects_injection_chars(string pwd)
+    {
+        var act = () => ScalanceCliCommands.BuildSetAdminPassword("admin", pwd);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void BuildSetDns_enters_dnsclient_mode_and_adds_servers()
+    {
+        var cfg = new DnsConfig { Servers = { "8.8.8.8", "1.1.1.1" }, DomainName = "example.com" };
+        var cmds = ScalanceCliCommands.BuildSetDns(cfg);
+
+        cmds[0].Should().Be("configure terminal");
+        cmds.Should().Contain("dnsclient");
+        cmds.Should().Contain("server type manual");
+        cmds.Should().Contain("manual srv 8.8.8.8");
+        cmds.Should().Contain("manual srv 1.1.1.1");
+        cmds.Should().Contain("no shutdown");
+        cmds.Should().Contain("ip domain-name example.com");
+        cmds[^1].Should().Be("write memory");
+    }
+
+    [Fact]
+    public void BuildSetDns_with_no_servers_shuts_down_client()
+    {
+        var cmds = ScalanceCliCommands.BuildSetDns(new DnsConfig());
+        cmds.Should().Contain("shutdown");
+        cmds.Should().NotContain(c => c.StartsWith("manual srv "));
+    }
+
+    [Fact]
+    public void ParseDnsClient_extracts_manual_servers()
+    {
+        var output = """
+            DNS client:
+                Status         : enabled
+                manual srv 8.8.8.8
+                manual srv 1.1.1.1
+                Domain Name: example.com
+            """;
+        var cfg = ScalanceCliCommands.ParseDnsClient(output);
+
+        cfg.Servers.Should().BeEquivalentTo(new[] { "8.8.8.8", "1.1.1.1" });
+        cfg.DomainName.Should().Be("example.com");
+    }
+}

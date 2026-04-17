@@ -1,0 +1,48 @@
+<Window x:Class="Scalance.App.Views.SetIpDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="透過 DCP 設定 IP" Height="280" Width="420"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="110"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,0,8"
+                   TextWrapping="Wrap" FontWeight="Bold"
+                   Text="{Binding Header}"/>
+
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="目標 MAC：" VerticalAlignment="Center"/>
+        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TargetMac}" Margin="0,2" FontFamily="Consolas"/>
+
+        <TextBlock Grid.Row="2" Grid.Column="0" Text="IP 位址：" VerticalAlignment="Center" Margin="0,6,0,0"/>
+        <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding IpText, UpdateSourceTrigger=PropertyChanged}" Margin="0,6,0,0"/>
+
+        <TextBlock Grid.Row="3" Grid.Column="0" Text="子網遮罩：" VerticalAlignment="Center" Margin="0,4,0,0"/>
+        <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding MaskText, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0"/>
+
+        <TextBlock Grid.Row="4" Grid.Column="0" Text="閘道：" VerticalAlignment="Center" Margin="0,4,0,0"/>
+        <TextBox   Grid.Row="4" Grid.Column="1" Text="{Binding GatewayText, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0"/>
+
+        <CheckBox  Grid.Row="5" Grid.Column="1" Margin="0,10,0,0"
+                   IsChecked="{Binding SavePermanent, Mode=TwoWay}"
+                   Content="永久儲存（重開機後仍保留）"/>
+
+        <StackPanel Grid.Row="7" Grid.ColumnSpan="2" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="取消" Width="80" Click="OnCancel" Margin="0,0,8,0"/>
+            <Button Content="確定" Width="80" Click="OnOk" IsDefault="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

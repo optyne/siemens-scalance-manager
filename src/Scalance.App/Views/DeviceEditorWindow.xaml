@@ -1,0 +1,64 @@
+<Window x:Class="Scalance.App.Views.DeviceEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="設備" Height="480" Width="480"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="140"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Text="名稱"            Grid.Row="0" Grid.Column="0" VerticalAlignment="Center"/>
+            <TextBox   Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Grid.Row="0" Grid.Column="1"/>
+
+            <TextBlock Text="主機 / IP"       Grid.Row="1" Grid.Column="0" VerticalAlignment="Center"/>
+            <TextBox   Text="{Binding Host, UpdateSourceTrigger=PropertyChanged}" Grid.Row="1" Grid.Column="1"/>
+
+            <TextBlock Text="描述"            Grid.Row="2" Grid.Column="0" VerticalAlignment="Center"/>
+            <TextBox   Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Grid.Row="2" Grid.Column="1"/>
+
+            <TextBlock Text="型號"            Grid.Row="3" Grid.Column="0" VerticalAlignment="Center"/>
+            <ComboBox  ItemsSource="{Binding ModelOptions}" SelectedItem="{Binding Model}" Grid.Row="3" Grid.Column="1"/>
+
+            <TextBlock Text="SNMP 埠"         Grid.Row="4" Grid.Column="0" VerticalAlignment="Center"/>
+            <TextBox   Text="{Binding SnmpPort}" Grid.Row="4" Grid.Column="1"/>
+
+            <TextBlock Text="SSH 埠"          Grid.Row="5" Grid.Column="0" VerticalAlignment="Center"/>
+            <TextBox   Text="{Binding SshPort}" Grid.Row="5" Grid.Column="1"/>
+
+            <TextBlock Text="SNMP 版本"       Grid.Row="6" Grid.Column="0" VerticalAlignment="Center"/>
+            <ComboBox  ItemsSource="{Binding SnmpVersions}" SelectedItem="{Binding SnmpVersion}" Grid.Row="6" Grid.Column="1"/>
+
+            <TextBlock Text="偏好協定"        Grid.Row="7" Grid.Column="0" VerticalAlignment="Center"/>
+            <ComboBox  ItemsSource="{Binding Protocols}" SelectedItem="{Binding PreferredProtocol}" Grid.Row="7" Grid.Column="1"/>
+
+            <TextBlock Text="SNMP community (讀取)"  Grid.Row="8" Grid.Column="0" VerticalAlignment="Center"/>
+            <TextBox   Text="{Binding SnmpCommunityRead}" Grid.Row="8" Grid.Column="1"/>
+
+            <TextBlock Text="SSH 使用者"      Grid.Row="9" Grid.Column="0" VerticalAlignment="Center"/>
+            <TextBox   Text="{Binding SshUsername}" Grid.Row="9" Grid.Column="1"/>
+
+            <TextBlock Text="SSH 密碼"        Grid.Row="10" Grid.Column="0" VerticalAlignment="Center"/>
+            <PasswordBox x:Name="SshPasswordBox" Grid.Row="10" Grid.Column="1" Margin="2"/>
+        </Grid>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Row="1">
+            <Button Content="取消" IsCancel="True" Click="Cancel_Click"/>
+            <Button Content="儲存" IsDefault="True" Click="Save_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

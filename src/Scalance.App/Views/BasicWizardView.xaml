@@ -1,0 +1,95 @@
+<UserControl x:Class="Scalance.App.Views.BasicWizardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12">
+        <StackPanel>
+            <TextBlock Text="Basic Wizard — 單台設備初始化" FontSize="16" FontWeight="Bold"/>
+            <TextBlock Text="{Binding StatusMessage}" Opacity="0.8" Margin="0,4,0,8" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding SelectedDeviceName, StringFormat=目前設備：{0}}" Margin="0,0,0,8"/>
+
+            <GroupBox Header="主機名稱" Padding="8" Margin="0,4">
+                <TextBox Text="{Binding Hostname, UpdateSourceTrigger=PropertyChanged}"/>
+            </GroupBox>
+
+            <GroupBox Header="管理介面 IP (VLAN1)" Padding="8" Margin="0,4">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Interface 名稱" VerticalAlignment="Center"/>
+                    <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding InterfaceName}" Margin="0,2"/>
+                    <CheckBox  Grid.Row="1" Grid.Column="1" Content="使用 DHCP" IsChecked="{Binding DhcpEnabled}" Margin="0,4"/>
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="IP 位址" VerticalAlignment="Center"/>
+                    <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding IpAddress}" Margin="0,2"/>
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="子網路遮罩" VerticalAlignment="Center"/>
+                    <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding SubnetMask}" Margin="0,2"/>
+                    <TextBlock Grid.Row="4" Grid.Column="0" Text="預設閘道" VerticalAlignment="Center"/>
+                    <TextBox   Grid.Row="4" Grid.Column="1" Text="{Binding DefaultGateway}" Margin="0,2"/>
+                </Grid>
+            </GroupBox>
+
+            <GroupBox Header="DNS" Padding="8" Margin="0,4">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition/><RowDefinition/><RowDefinition/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="DNS 伺服器 1" VerticalAlignment="Center"/>
+                    <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding Dns1}" Margin="0,2"/>
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="DNS 伺服器 2" VerticalAlignment="Center"/>
+                    <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding Dns2}" Margin="0,2"/>
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Domain Name" VerticalAlignment="Center"/>
+                    <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding DomainName}" Margin="0,2"/>
+                </Grid>
+            </GroupBox>
+
+            <GroupBox Header="NTP" Padding="8" Margin="0,4">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition/><RowDefinition/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="NTP Server" VerticalAlignment="Center"/>
+                    <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding NtpServer}" Margin="0,2"/>
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Timezone" VerticalAlignment="Center"/>
+                    <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding Timezone}" Margin="0,2"/>
+                </Grid>
+            </GroupBox>
+
+            <GroupBox Header="管理員密碼 (留白表示不變更)" Padding="8" Margin="0,4">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition/><RowDefinition/><RowDefinition/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="帳號" VerticalAlignment="Center"/>
+                    <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding AdminUsername}" Margin="0,2"/>
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="新密碼" VerticalAlignment="Center"/>
+                    <PasswordBox Grid.Row="1" Grid.Column="1" Margin="0,2"
+                                 PasswordChanged="NewPassword_PasswordChanged"/>
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="確認密碼" VerticalAlignment="Center"/>
+                    <PasswordBox Grid.Row="2" Grid.Column="1" Margin="0,2"
+                                 PasswordChanged="ConfirmPassword_PasswordChanged"/>
+                </Grid>
+            </GroupBox>
+
+            <Button Content="套用 Basic Wizard"
+                    Command="{Binding ApplyCommand}"
+                    IsEnabled="{Binding FeatureSupported}"
+                    Padding="20,8" Margin="0,12,0,0" HorizontalAlignment="Left"/>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

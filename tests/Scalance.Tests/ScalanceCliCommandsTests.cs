@@ -1,0 +1,293 @@
+using FluentAssertions;
+using Scalance.Core.Models;
+using Scalance.Drivers;
+
+namespace Scalance.Tests;
+
+public class ScalanceCliCommandsTests
+{
+    [Fact]
+    public void BuildSetVlans_wraps_commands_with_configure_and_write()
+    {
+        var vlans = new List<Vlan>
+        {
+            new Vlan { Id = 10, Name = "office", Ports = { new VlanPortMembership(1, VlanMemberMode.Untagged) } }
+        };
+
+        var cmds = ScalanceCliCommands.BuildSetVlans(vlans);
+
+        cmds.First().Should().Be("configure terminal");
+        cmds.Last().Should().Be("write memory");
+        cmds.Should().Contain("end");
+        // S615 CLI manual p. 242: must be in dot1q-vlan mode before vlan commands.
+        cmds.Should().Contain("base bridge-mode dot1q-vlan");
+        cmds.Should().Contain("vlan 10");
+        cmds.Should().Contain("name office");
+        // Real S615 syntax: port membership via "ports" command inside VLAN config mode
+        // with untagged ports listed after "untagged" keyword (PH_SCALANCE-S615-CLI_76 p. 266)
+        cmds.Should().Contain("ports () untagged (0.1)");
+    }
+
+    [Fact]
+    public void BuildSetVlans_emits_dot1q_before_vlan_commands()
+    {
+        var vlans = new List<Vlan>
+        {
+            new Vlan { Id = 10, Name = "office" }
+        };
+
+        var cmds = ScalanceCliCommands.BuildSetVlans(vlans).ToList();
+        var dot1qIdx = cmds.IndexOf("base bridge-mode dot1q-vlan");
+        var vlanIdx = cmds.IndexOf("vlan 10");
+
+        dot1qIdx.Should().BeGreaterThan(0, "dot1q mode setup must come after configure terminal");
+        dot1qIdx.Should().BeLessThan(vlanIdx, "dot1q mode must precede vlan commands");
+    }
+
+    [Theory]
+    [InlineData(1, "0.1")]
+    [InlineData(8, "0.8")]
+    [InlineData(101, "1.1")]
+    [InlineData(216, "2.16")]
+    public void FormatPortId_emits_module_dot_port(int raw, string expected)
+    {
+        ScalanceCliCommands.FormatPortId(raw).Should().Be(expected);
+    }
+
+    [Fact]
+    public void BuildSetVlans_emits_ports_when_port_is_tagged_in_multiple_vlans()
+    {
+        var vlans = new List<Vlan>
+        {
+            new Vlan { Id = 10, Name = "red",  Ports = { new VlanPortMembership(2, VlanMemberMode.Tagged) } },
+            new Vlan { Id = 20, Name = "blue", Ports = { new VlanPortMembership(2, VlanMemberMode.Tagged) } },
+        };
+
+        var cmds = ScalanceCliCommands.BuildSetVlans(vlans);
+
+        // Real S615 syntax: tagged ports listed in the "ports" command per VLAN
+        // (PH_SCALANCE-S615-CLI_76 p. 266)
+        cmds.Should().Contain("ports (0.2)");
+        cmds.Should().Contain("vlan 10");
+        cmds.Should().Contain("vlan 20");
+    }
+
+    [Fact]
+    public void BuildSetInterface_for_dhcp_emits_ip_address_dhcp()
+    {
+        var cfg = new InterfaceIpConfig { InterfaceName = "vlan1", DhcpEnabled = true };
+        var cmds = ScalanceCliCommands.BuildSetInterface(cfg);
+
+        cmds.Should().Contain("interface vlan1");
+        cmds.Should().Contain("ip address dhcp");
+        cmds.Last().Should().Be("write memory");
+    }
+
+    [Fact]
+    public void BuildSetInterface_static_uses_prefix_length_to_derive_mask()
+    {
+        var cfg = new InterfaceIpConfig
+        {
+            InterfaceName = "vlan1",
+            DhcpEnabled = false,
+            IpAddress = "192.168.1.1",
+            PrefixLength = 24,
+            DefaultGateway = "192.168.1.254"
+        };
+        var cmds = ScalanceCliCommands.BuildSetInterface(cfg);
+
+        cmds.Should().Contain("ip address 192.168.1.1 255.255.255.0");
+        // Real S615 syntax: default gateway via ip route (PH_SCALANCE-S615-CLI_76 p. 331)
+        cmds.Should().Contain("ip route 0.0.0.0 0.0.0.0 192.168.1.254");
+    }
+
+    [Fact]
+    public void BuildSetInterface_rejects_static_config_without_ip()
+    {
+        var cfg = new InterfaceIpConfig { InterfaceName = "vlan1", DhcpEnabled = false };
+        Action act = () => ScalanceCliCommands.BuildSetInterface(cfg);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void BuildSetVpnTunnel_produces_ipsec_connection_and_remote_end()
+    {
+        var t = new VpnTunnel
+        {
+            Name = "branch",
+            Enabled = true,
+            RemoteEndpoint = "203.0.113.10",
+            LocalSubnet = "192.168.1.0/24",
+            RemoteSubnet = "192.168.2.0/24",
+            AuthMode = VpnAuthMode.Psk,
+            PreSharedKey = "supersecret"
+        };
+
+        var cmds = ScalanceCliCommands.BuildSetVpnTunnel(t);
+
+        // Real S615 IPsec syntax (PH_SCALANCE-S615-CLI_76 pp. 697-732)
+        cmds.Should().Contain("ipsec");
+        cmds.Should().Contain("remote-end name branch-remote");
+        cmds.Should().Contain("addr 203.0.113.10");
+        cmds.Should().Contain("conn-mode standard");
+        cmds.Should().Contain("subnet 192.168.2.0/24");
+        cmds.Should().Contain("connection name branch");
+        cmds.Should().Contain("rmend name branch-remote");
+        cmds.Should().Contain("loc-subnet 192.168.1.0/24");
+        cmds.Should().Contain("k-proto ikev2");
+        cmds.Should().Contain("operation start");
+        cmds.Should().Contain("authentication");
+        cmds.Should().Contain("auth psk supersecret");
+        cmds.Should().Contain("no shutdown");
+        cmds.Last().Should().Be("write memory");
+    }
+
+    [Fact]
+    public void BuildSetVpnTunnel_disabled_emits_shutdown()
+    {
+        var t = new VpnTunnel
+        {
+            Name = "off",
+            Enabled = false,
+            RemoteEndpoint = "198.51.100.1",
+            LocalSubnet = "10.0.0.0/24",
+            RemoteSubnet = "10.0.1.0/24",
+            AuthMode = VpnAuthMode.Certificate,
+        };
+        var cmds = ScalanceCliCommands.BuildSetVpnTunnel(t);
+
+        // Real S615 syntax: disabled VPN uses "operation disabled" + "shutdown"
+        cmds.Should().Contain("operation disabled");
+        cmds.Should().Contain("shutdown");
+    }
+
+    [Fact]
+    public void BuildSetVpnTunnel_emits_phase1_phase2_subcommands_from_settings()
+    {
+        var t = new VpnTunnel
+        {
+            Name = "p1p2",
+            Enabled = true,
+            RemoteEndpoint = "203.0.113.20",
+            LocalSubnet = "10.10.0.0/24",
+            RemoteSubnet = "10.20.0.0/24",
+            AuthMode = VpnAuthMode.Psk,
+            PreSharedKey = "k",
+            Ike = new IkeSettings
+            {
+                Encryption = "aes256",
+                Hash = "sha256",
+                DhGroup = "14",
+                LifetimeSeconds = 28800,
+            },
+            Esp = new EspSettings
+            {
+                Encryption = "aes256",
+                Hash = "sha256",
+                PfsGroup = "14",
+                LifetimeSeconds = 3600,
+            },
+        };
+
+        var cmds = ScalanceCliCommands.BuildSetVpnTunnel(t).ToList();
+
+        // Phase 1 sub-commands inside cli(config-ipsec-conn-phase1)# (pp. 734-744)
+        cmds.Should().Contain("phase 1");
+        // "no default-ciphers" must appear so user-supplied values take effect (p. 735-736)
+        cmds.Where(c => c == "no default-ciphers").Should().HaveCount(2,
+            "both phase 1 and phase 2 must clear default ciphers before custom values are set");
+        cmds.Should().Contain("ike-encryption aes256");
+        cmds.Should().Contain("ike-auth sha256");
+        cmds.Should().Contain("ike-keyderivation 14");
+        cmds.Should().Contain("ike-lifetime 28800");
+
+        // Phase 2 sub-commands inside cli(config-ipsec-conn-phase2)# (pp. 745-754)
+        cmds.Should().Contain("phase 2");
+        cmds.Should().Contain("esp-encryption aes256");
+        cmds.Should().Contain("esp-auth sha256");
+        cmds.Should().Contain("esp-keyderivation 14");
+        cmds.Should().Contain("lifetime 3600");
+    }
+
+    [Fact]
+    public void BuildSetVpnTunnel_skips_pfs_when_set_to_none()
+    {
+        var t = new VpnTunnel
+        {
+            Name = "nopfs",
+            Enabled = true,
+            RemoteEndpoint = "203.0.113.30",
+            AuthMode = VpnAuthMode.Psk,
+            PreSharedKey = "k",
+            Esp = new EspSettings { PfsGroup = "none" },
+        };
+        var cmds = ScalanceCliCommands.BuildSetVpnTunnel(t);
+        cmds.Should().NotContain(c => c.StartsWith("esp-keyderivation"));
+    }
+
+    [Fact]
+    public void BuildSetVpnTunnel_certificate_auth_emits_cacert_localcert()
+    {
+        var t = new VpnTunnel
+        {
+            Name = "certvpn",
+            Enabled = true,
+            RemoteEndpoint = "203.0.113.40",
+            AuthMode = VpnAuthMode.Certificate,
+            LocalCertificateName = "site-a.crt",
+        };
+        var cmds = ScalanceCliCommands.BuildSetVpnTunnel(t);
+
+        // PH_SCALANCE-S615-CLI_76 p. 727: auth cacert <ca> localcert <local>
+        cmds.Should().Contain("auth cacert site-a.crt localcert site-a.crt");
+        cmds.Should().NotContain(c => c.StartsWith("auth psk"));
+    }
+
+    [Fact]
+    public void BuildSetInterface_emits_dnsclient_mode_for_dns_servers()
+    {
+        var cfg = new InterfaceIpConfig
+        {
+            InterfaceName = "vlan1",
+            DhcpEnabled = false,
+            IpAddress = "192.168.1.1",
+            PrefixLength = 24,
+            DnsServers = { "8.8.8.8", "1.1.1.1" },
+        };
+
+        var cmds = ScalanceCliCommands.BuildSetInterface(cfg).ToList();
+
+        // S615 CLI manual sec 9.7 (pp. 408-417): DNS uses dnsclient mode, not "ip name-server".
+        cmds.Should().Contain("dnsclient");
+        cmds.Should().Contain("no shutdown");
+        cmds.Should().Contain("server type manual");
+        cmds.Should().Contain("manual srv 8.8.8.8");
+        cmds.Should().Contain("manual srv 1.1.1.1");
+        cmds.Should().NotContain(c => c.StartsWith("ip name-server"));
+
+        // dnsclient block must come after the interface config and before "end"
+        var dnsIdx = cmds.IndexOf("dnsclient");
+        var endIdx = cmds.IndexOf("end");
+        dnsIdx.Should().BeLessThan(endIdx);
+    }
+
+    [Theory]
+    [InlineData(0, "0.0.0.0")]
+    [InlineData(8, "255.0.0.0")]
+    [InlineData(24, "255.255.255.0")]
+    [InlineData(30, "255.255.255.252")]
+    [InlineData(32, "255.255.255.255")]
+    public void PrefixToMask_known_values(int prefix, string expected)
+    {
+        ScalanceCliCommands.PrefixToMask(prefix).Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("255.255.255.0", 24)]
+    [InlineData("255.255.252.0", 22)]
+    [InlineData("255.0.0.0", 8)]
+    public void MaskToPrefix_roundtrips(string mask, int expected)
+    {
+        ScalanceCliCommands.MaskToPrefix(mask).Should().Be(expected);
+    }
+}

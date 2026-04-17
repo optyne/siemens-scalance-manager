@@ -1,0 +1,40 @@
+<UserControl x:Class="Scalance.App.Views.TopologyView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="8,6">
+            <Button Content="載入" Command="{Binding LoadCommand}" Padding="12,4" Margin="0,0,6,0"/>
+            <Button Content="自動排列" Command="{Binding AutoArrangeCommand}" Padding="12,4" Margin="0,0,6,0"/>
+            <Button Content="儲存位置" Command="{Binding SaveLayoutCommand}" Padding="12,4" Margin="0,0,12,0"/>
+            <TextBlock Text="滾輪縮放；拖拉移動設備；Ctrl+拖拉平移畫布" VerticalAlignment="Center" Opacity="0.5"/>
+        </StackPanel>
+
+        <Border Grid.Row="1" ClipToBounds="True" Background="#F8F9FA">
+            <Canvas x:Name="TopologyCanvas" Width="2000" Height="2000"
+                    MouseWheel="OnMouseWheel"
+                    MouseLeftButtonDown="OnCanvasMouseDown"
+                    MouseMove="OnCanvasMouseMove"
+                    MouseLeftButtonUp="OnCanvasMouseUp"
+                    MouseRightButtonDown="OnCanvasMouseDown"
+                    MouseRightButtonUp="OnCanvasMouseUp"
+                    Background="Transparent">
+                <Canvas.RenderTransform>
+                    <TransformGroup>
+                        <ScaleTransform x:Name="ZoomTransform"/>
+                        <TranslateTransform x:Name="PanTransform"/>
+                    </TransformGroup>
+                </Canvas.RenderTransform>
+            </Canvas>
+        </Border>
+
+        <StatusBar Grid.Row="2">
+            <TextBlock Text="{Binding StatusMessage, FallbackValue=就緒。}"/>
+        </StatusBar>
+    </Grid>
+</UserControl>

@@ -1,0 +1,80 @@
+<UserControl x:Class="Scalance.App.Views.ConnectionStatusView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="120"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 頂部工具列 -->
+        <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,8">
+            <Button Content="重新整理" Command="{Binding RefreshCommand}" Padding="12,4" FontWeight="Bold"/>
+            <ProgressBar Width="120" Height="16" Margin="12,0" IsIndeterminate="{Binding IsBusy}"
+                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}"/>
+            <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Margin="8,0"/>
+        </StackPanel>
+
+        <!-- 設備連線狀態表格 -->
+        <DataGrid Grid.Row="1"
+                  ItemsSource="{Binding Devices}"
+                  SelectedItem="{Binding SelectedDevice, Mode=TwoWay}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  HeadersVisibility="Column"
+                  CanUserAddRows="False"
+                  GridLinesVisibility="Horizontal"
+                  AlternatingRowBackground="#F8F8F8"
+                  SelectionMode="Single">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="設備名稱" Binding="{Binding DeviceName}" Width="140"/>
+                <DataGridTextColumn Header="IP / 主機" Binding="{Binding Host}" Width="140"/>
+                <DataGridTextColumn Header="型號" Binding="{Binding Model}" Width="100"/>
+                <DataGridTextColumn Header="可達性" Binding="{Binding ReachableDisplay}" Width="60">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="FontSize" Value="16"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="連線方式" Binding="{Binding ConnectionMethod}" Width="180"/>
+                <DataGridTextColumn Header="VLAN 資訊" Binding="{Binding CurrentVlans}" Width="140"/>
+                <DataGridTextColumn Header="警告" Binding="{Binding Warning}" Width="160">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Warning, Converter={StaticResource StringNotEmpty}}" Value="True">
+                                    <Setter Property="Background" Value="#FFFDE7"/>
+                                    <Setter Property="Foreground" Value="#F57F17"/>
+                                    <Setter Property="FontWeight" Value="Bold"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="上次檢查" Binding="{Binding LastCheckedDisplay}" Width="80"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <GridSplitter Grid.Row="2" Height="4" HorizontalAlignment="Stretch" Background="#DDDDDD"/>
+
+        <!-- 連線指引面板 -->
+        <DockPanel Grid.Row="3" Margin="0,4,0,0">
+            <TextBlock DockPanel.Dock="Top" Text="連線指引" FontWeight="Bold" Margin="4,2"/>
+            <Border Background="#F5F6F8" BorderBrush="#DDDDDD" BorderThickness="1" Padding="8">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <TextBlock Text="{Binding ConnectionGuide, FallbackValue=（請選取一台設備以檢視連線指引）}"
+                               TextWrapping="Wrap"
+                               FontFamily="Consolas, Microsoft JhengHei"
+                               FontSize="13"/>
+                </ScrollViewer>
+            </Border>
+        </DockPanel>
+
+        <ProgressBar Grid.Row="4" Height="4" IsIndeterminate="{Binding IsBusy}" Margin="0,4,0,0"/>
+    </Grid>
+</UserControl>

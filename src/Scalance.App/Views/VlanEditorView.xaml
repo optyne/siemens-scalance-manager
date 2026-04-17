@@ -1,0 +1,52 @@
+<UserControl x:Class="Scalance.App.Views.VlanEditorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="0">
+            <TextBlock Text="設備：" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding SelectedDeviceName, FallbackValue=(無)}" FontWeight="Bold" VerticalAlignment="Center"/>
+            <Separator Width="16"/>
+            <Button Content="載入"        Command="{Binding LoadCommand}"   Margin="4,0"/>
+            <Button Content="套用"        Command="{Binding ApplyCommand}"  Margin="4,0"/>
+            <Button Content="移除選取項目" Command="{Binding RemoveVlanCommand}" Margin="12,0,4,0"/>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="1" Margin="0,8">
+            <TextBlock Text="新增 VLAN：" VerticalAlignment="Center"/>
+            <TextBlock Text="ID" Margin="8,0,4,0" VerticalAlignment="Center"/>
+            <TextBox Width="80" Text="{Binding NewVlanId, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Text="名稱" Margin="8,0,4,0" VerticalAlignment="Center"/>
+            <TextBox Width="160" Text="{Binding NewVlanName, UpdateSourceTrigger=PropertyChanged}"/>
+            <Button Content="新增" Command="{Binding AddVlanCommand}" Margin="8,0"/>
+        </StackPanel>
+
+        <DataGrid Grid.Row="2" Margin="0,8"
+                  ItemsSource="{Binding Vlans}"
+                  SelectedItem="{Binding SelectedVlan}"
+                  AutoGenerateColumns="False"
+                  HeadersVisibility="Column" CanUserAddRows="False">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="VLAN ID"      Binding="{Binding Id}"            Width="80"  IsReadOnly="True"/>
+                <DataGridTextColumn Header="名稱"         Binding="{Binding Name}"          Width="200"/>
+                <DataGridTextColumn Header="標記埠"       Binding="{Binding TaggedPorts}"   Width="*"
+                                    ElementStyle="{x:Null}"/>
+                <DataGridTextColumn Header="未標記埠"     Binding="{Binding UntaggedPorts}" Width="*"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <ProgressBar Grid.Row="3" Height="4" IsIndeterminate="{Binding IsBusy}" Margin="0,4"/>
+        <StatusBar Grid.Row="4">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}"/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</UserControl>

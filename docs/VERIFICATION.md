@@ -1,0 +1,133 @@
+# CLI / Protocol Verification Status
+
+This document records, per feature, whether the implementation is grounded in
+primary Siemens documentation or inferred from other sources. Update it every
+time you verify a command against a real device.
+
+## Sources actually in this repo
+
+| File | Covers | Scope |
+| --- | --- | --- |
+| `SIEMENS_BA_SCALANCE-S610_76.pdf` | **S615 Operating Instructions** (file is mislabeled — Validity section on page 3 says "SCALANCE S615"). Hardware install, LEDs, PLUG handling. | No CLI commands. |
+| `SIEMENS_BA_SCALANCE-XC-200_76.pdf` | XC-200 Operating Instructions. | No CLI commands. |
+| `SIEMENS_PH_SCALANCE-S615-WBM_76.pdf` | S615 Web Based Management configuration manual (346 pp). | WBM field semantics for IP / VLAN / IPsec VPN / NTP / firewall. No CLI. |
+| `SIEMENS_PH_SCALANCE-XB-200-XC-200-XF-200BA-XP-200-XR-300WG-WBM_76.pdf` | X-200 family WBM configuration manual (422 pp). | WBM field semantics. No CLI. |
+
+| `docs/PH_SCALANCE-S615-CLI_76_en-US.pdf` | S615 CLI configuration manual (850 pp). | Full CLI command reference for S615. Primary source for all CLI builders. |
+
+**Additional CLI manuals** (not yet in this repo):
+
+- XB/XC/XP-200: `https://support.industry.siemens.com/cs/attachments/109743150/PH_SCALANCE-XB-200-XC-200-XP-200-CLI_76.pdf`
+- XB/XC/XF-200BA/XP/XR-300WG (consolidated): `https://support.industry.siemens.com/cs/attachments/109817329/PH_SCALANCE-XB-200-XC-200-XF-200BA-XP-200-XR-300WG-CLI_76.pdf`
+- SC-600 (related reference): `https://support.industry.siemens.com/cs/attachments/109754814/PH_SCALANCE-SC-600-CLI_76.pdf`
+
+## Verified from primary sources
+
+| Item | Source | Notes |
+| --- | --- | --- |
+| Port identifier format `M.P` (e.g. `0.1` = module 0 port 1) | S615 WBM p. ~236, X-200 WBM p. 281 — both quote verbatim: *"port 0.1 is module 0, port 1"* | Implemented in `ScalanceCliCommands.FormatPortId`. |
+| S615 supports IPsec VPN up to 20 phase-2 connections | S615 WBM §2.5 | `CapabilityMatrix.S615` has `IpsecVpn`. |
+| X-200 family does NOT support IPsec | X-200 WBM: 0 occurrences of "IPsec" in 422 pages | `CapabilityMatrix` correctly gates `IpsecVpn` to S615 only. |
+| S615 VPN semantic model (Remote End, Connections, Auth, Phase 1, Phase 2) | S615 WBM §4.10.6 | `VpnEditorViewModel` fields and `VpnTunnel` / `IkeSettings` / `EspSettings` match. |
+| S615 authentication modes: Disabled / Remote Cert / CA Cert / PSK | S615 WBM §4.10.6.4 | `VpnAuthMode` enum. |
+| Phase 1 DH groups 1,2,5,14,15,16,17,18 and hashes MD5/SHA1/SHA256/SHA384/SHA512 | S615 WBM §4.10.6.5 | `VpnEditorViewModel` dropdown options. |
+| Phase 2 PFS groups same set, plus None | S615 WBM §4.10.6.6 | Same. |
+| DCP Ethertype 0x8892 and multicast MAC `01:0E:CF:00:00:00` | PROFINET University + Wireshark docs | Not yet implemented; noted for DCP discovery feature. |
+| `vlan <id>` to create VLAN and enter VLAN config mode | PH_SCALANCE-S615-CLI_76 p. 249 | `BuildSetVlans` uses this. Prompt: `cli(config-vlan-$$$)#` |
+| `name <vlan-name>` to set VLAN name (max 32 chars) | PH_SCALANCE-S615-CLI_76 p. 265 | Inside VLAN config mode. |
+| `ports (<tagged-list>) [untagged (<untagged-list>)] [forbidden (<forbidden-list>)]` for VLAN port membership | PH_SCALANCE-S615-CLI_76 pp. 266-267 | Replaces old Cisco-style `switchport access/trunk` approach. Port membership is configured per-VLAN, not per-interface. |
+| `base bridge-mode {dot1d-bridge\|dot1q-vlan}` for VLAN-aware mode | PH_SCALANCE-S615-CLI_76 p. 242 | Not currently emitted by builder; device may need to be in dot1q-vlan mode first. |
+| `switchport mode {trunk\|hybrid}` (default: hybrid) | PH_SCALANCE-S615-CLI_76 p. 258 | S615 uses trunk/hybrid (NOT access), in interface config mode. Not emitted by VLAN builder. |
+| `ip address <ip> {<mask> \| / <prefix>}` in VLAN interface mode | PH_SCALANCE-S615-CLI_76 pp. 338-339 | In `cli(config-if-vlan-$$$)#`. DHCP must be disabled first via `no ip address dhcp`. |
+| `ip address dhcp` in VLAN interface mode | PH_SCALANCE-S615-CLI_76 p. 340 | In `cli(config-if-vlan-$$$)#`. |
+| `ip route <prefix> <mask> <next-hop>` for static routes / default gateway | PH_SCALANCE-S615-CLI_76 pp. 331-332 | In global config mode. Replaces old `ip default-gateway`. |
+| `ntp` to enter NTP config mode | PH_SCALANCE-S615-CLI_76 p. 216 | Prompt: `cli(config-ntp)#`. |
+| `ntp server id <1-3> { ipv4 <ip> \| fqdn-name <fqdn> } [poll <sec>]` | PH_SCALANCE-S615-CLI_76 pp. 217-218 | Max 3 servers. Poll range 64-2592000 seconds. |
+| `ipsec` to enter IPsec config mode | PH_SCALANCE-S615-CLI_76 p. 697 | Prompt: `cli(config-ipsec)#`. |
+| `connection name <name>` to create/enter IPsec connection | PH_SCALANCE-S615-CLI_76 p. 699 | Prompt: `cli(config-conn-X)#`. Max 122 chars. |
+| `remote-end name <name>` to create/enter remote end | PH_SCALANCE-S615-CLI_76 p. 705 | Prompt: `cli(config-ipsec-rmend-X)#`. Max 128 chars. |
+| `addr <subnet\|dns>` for remote endpoint address | PH_SCALANCE-S615-CLI_76 p. 711 | In remote-end config mode. |
+| `conn-mode {roadwarrior\|standard}` | PH_SCALANCE-S615-CLI_76 pp. 713-714 | In remote-end config mode. |
+| `subnet <subnet\|dns>` for remote subnet | PH_SCALANCE-S615-CLI_76 p. 715 | In remote-end config mode. |
+| `loc-subnet <cidr>` for local subnet | PH_SCALANCE-S615-CLI_76 p. 719 | In connection config mode. |
+| `k-proto {ikev1\|ikev2}` for IKE version | PH_SCALANCE-S615-CLI_76 p. 718 | In connection config mode. |
+| `operation {disabled\|start\|wait\|on-demand\|...}` | PH_SCALANCE-S615-CLI_76 pp. 719-721 | In connection config mode. |
+| `authentication` to enter auth config mode | PH_SCALANCE-S615-CLI_76 p. 717 | Prompt: `cli(config-conn-auth)#`. |
+| `auth psk <key>` for pre-shared key | PH_SCALANCE-S615-CLI_76 p. 728 | In auth config mode. |
+| `auth cacert <ca> localcert <cert>` for CA certificate auth | PH_SCALANCE-S615-CLI_76 p. 727 | In auth config mode. |
+| `phase <1\|2>` to enter phase config mode | PH_SCALANCE-S615-CLI_76 p. 721 | Prompt: `cli(config-conn-phsX)#`. |
+| `shutdown` / `no shutdown` for IPsec enable/disable | PH_SCALANCE-S615-CLI_76 pp. 709-710 | In IPsec config mode. Global IPsec on/off. |
+| Phase 1 sub-commands `ike-encryption`, `ike-auth`, `ike-keyderivation`, `ike-lifetime` | PH_SCALANCE-S615-CLI_76 pp. 740-744 | Inside `cli(config-ipsec-conn-phase1)#`. DH group lives in `ike-keyderivation`, NOT `dh-group`. |
+| Phase 2 sub-commands `esp-encryption`, `esp-auth`, `esp-keyderivation`, `lifetime` | PH_SCALANCE-S615-CLI_76 pp. 749-752 | Inside `cli(config-ipsec-conn-phase2)#`. PFS group lives in `esp-keyderivation`, NOT `pfs-group`. |
+| `no default-ciphers` required before custom phase ciphers | PH_SCALANCE-S615-CLI_76 pp. 735-736, 747-748 | `BuildSetVpnTunnel` emits this in both phase 1 and phase 2 blocks so user-supplied values are not overridden by the device's default cipher set. |
+| `auth cacert <ca> localcert <local>` for certificate-based VPN auth | PH_SCALANCE-S615-CLI_76 p. 727 | `BuildSetVpnTunnel` emits this when `AuthMode == Certificate` and `LocalCertificateName` is set. The `VpnTunnel` model currently carries one cert name and reuses it for both operands — add a separate CA field if the two need to differ. |
+| `base bridge-mode dot1q-vlan` prerequisite emitted by `BuildSetVlans` | PH_SCALANCE-S615-CLI_76 p. 242 | Idempotent — sending it when already in dot1q-vlan mode is a no-op. Now emitted before any `vlan <id>` so VLAN commands cannot be rejected for being in dot1d-bridge mode. |
+| DNS uses `dnsclient` mode + `manual srv <ip>` | PH_SCALANCE-S615-CLI_76 sec 9.7, pp. 408-417 (mode entries: `dnsclient` p. 411, `server type` p. 415, `manual srv` p. 414, `no shutdown` p. 417) | `BuildSetInterface` now emits the dnsclient block instead of the (incorrect) Cisco-style `ip name-server`. |
+| `configure terminal` / `end` / `exit` mode navigation | PH_SCALANCE-S615-CLI_76 pp. 241, 262, 697 | Confirmed: `configure terminal` enters global config; `end` returns to privileged EXEC; `exit` goes up one level. |
+| `write memory` to save configuration | PH_SCALANCE-S615-CLI_76 (confirmed via mode docs) | Standard save command. |
+| `show firewall ip-rules ipv4` | PH_SCALANCE-S615-CLI_76 pp. 591–646 | Read command for IPv4 firewall rules. Output parsing is best-effort until validated on real device. |
+| `show firewall pre-rules ipv4` | PH_SCALANCE-S615-CLI_76 pp. 591–646 | Read command for predefined firewall service rules. Output parsing is best-effort. |
+| `ipv4rule from <if> to <if> srcip <cidr> dstip <cidr> action <acc\|drop\|rej> [service <svc>] [log <level>] [prior <n>]` | PH_SCALANCE-S615-CLI_76 pp. 591–646 | Create IPv4 firewall rule. Gated by DryRun. |
+| `no ipv4rule idx <N>` | PH_SCALANCE-S615-CLI_76 pp. 591–646 | Delete IPv4 firewall rule by index. Gated by DryRun. |
+| `prerule <service> <interface>` | PH_SCALANCE-S615-CLI_76 pp. 591–646 | Toggle predefined service on interface (vlan 1 = local, vlan 2 = external). Gated by DryRun. |
+
+## Web-search snippets (now confirmed against CLI manual)
+
+The following signals from web-search snippets have been **confirmed** against
+`docs/PH_SCALANCE-S615-CLI_76_en-US.pdf` and the corresponding CLI builders
+have been updated. All items below are now in the "Verified" table above.
+
+| Signal | Confirmed | Status |
+| --- | --- | --- |
+| VLAN mode `cli(config-vlan-$$$)#` with `ports`/`no ports` | Yes, pp. 249-267 | `BuildSetVlans` updated. |
+| `base bridge-mode dot1q-vlan` | Yes, p. 242 | Documented but not yet emitted (noted in Inferred). |
+| `ip address dhcp` on VLAN interface | Yes, p. 340 | `BuildSetInterface` confirmed correct. |
+| S615 IPsec uses `ipsec`/`connection name` model | Yes, pp. 697-732 | `BuildSetVpnTunnel` completely rewritten. |
+| NTP uses `ntp server id` with `ipv4`/`fqdn-name` keywords | Yes, pp. 217-218 | `SetNtpAsync` updated. |
+
+## Inferred (needs real-device validation)
+
+These items are still guarded by `ScalanceCliDriverBase.DryRun = true`.
+Most CLI commands have been updated from the S615 CLI manual; the remaining
+inferred items are limited to output parsing and edge cases.
+
+| Item | What's assumed | Risk |
+| --- | --- | --- |
+| `show ip interface brief` output format (6 cols) | Cisco-IOS convention | Parser is defensive — handles `ethernet 0/1` and `0.1` (module.port) interface formats. Adjust when real output is available. |
+| Cipher value tokens (`aes256`, `sha256`, DH group `14`, …) for `ike-encryption` / `ike-auth` / `ike-keyderivation` / `esp-encryption` / `esp-auth` / `esp-keyderivation` | Tokens taken from the WBM dropdowns; the CLI command names are verified but the exact accepted operand strings live on the same pages as the commands and were not transcribed | Risk: device may reject e.g. `aes256` if it expects `aes-256`. `BuildSetVpnTunnel` passes the IkeSettings/EspSettings strings through verbatim — adjust either the model defaults or add a translator if a real device rejects them. |
+| VPN tunnel parser (`ParseVpnTunnels`) | Still parses legacy Cisco-style `crypto map` output format | Needs update to parse real S615 `show ipsec connections` output once a sample is available. |
+
+## Admin password / DNS / Basic Wizard (new, 2026-04)
+
+| Item | Source | Status |
+|------|--------|--------|
+| `username <u> password <p>` | **Inferred** from Cisco-IOS convention | 尚未在實體 S615 驗證。`BuildSetAdminPassword` 產生此指令；DryRun 預設仍開啟。實體驗證前請勿關閉 DryRun。S615 韌體也可能使用 `user-account <u>` → `password <p>` 模式。|
+| `hostname <name>` | S615 CLI manual ch. "System" | 通用 Cisco-style 指令，S615 亦採用。標 Inferred 直到實機驗證。|
+| `dnsclient` → `server type manual` / `manual srv <ip>` / `no shutdown` | PH_SCALANCE-S615-CLI_76 sec 9.7, pp. 408-417 | **Verified by manual**。`BuildSetDns` 產生。Apply 前會先送 `no manual srv` 以清除舊設，若實機不接受此形式會被忽略。|
+| `ip domain-name <name>` | Cisco-IOS convention | Inferred — optional field。|
+| `show dnsclient` parsing | `ParseDnsClient` 容錯解析 `manual srv <ip>` 與 `Domain Name:` 行 | Inferred。若實機輸出格式不同，解析會回傳空的 DnsConfig 而非拋出。|
+| `ApplyBasicWizardAsync` 組合順序 | hostname → interface → dns → ntp → password | 設計決策 — 密碼最後才改，避免中途斷線；NTP 之所以排第四而非最後，是因為它 `forceExecute=true` 會跳過 DryRun，這順序能讓 DryRun 預覽包含除了 NTP 之外的所有規劃指令。|
+
+## Re-verification procedure
+
+1. Obtain the S615 CLI manual (`PH_SCALANCE-S615-CLI_76.pdf`) and drop it at
+   the repo root alongside the WBM PDFs.
+2. Set `ScalanceCliDriverBase.DryRun = false` on a test device only.
+3. From the app, click **Apply** on each editor (VLAN / Subnet / VPN / NTP).
+   The driver now builds AND executes commands. `LastPlannedCommands` still
+   contains the last attempted batch for post-mortem.
+4. Compare planned commands against the CLI manual. For each mismatch, update
+   `ScalanceCliCommands` and move the row in the "Inferred" table above to the
+   "Verified" table with a citation.
+5. Once all four editors are green against a real device of each capability
+   class (S615, one X-200 variant), `DryRun` default can be flipped to `false`.
+
+## Products we claim to support
+
+From `CapabilityMatrix`: S610, S615, XB-200, XC-200, XF-200BA, XP-200, XR-300WG.
+
+**Caveat on S610:** the only S610 document in the repo is mislabeled — it
+actually contains the S615 Operating Instructions. Siemens catalog does list
+an S610 as a distinct product, but we have no primary source on it locally.
+Treat S610 support as untested. Confirm the correct article number and grab
+its real Operating + WBM manuals before shipping an S610 driver.
