@@ -136,6 +136,7 @@ inferred items are limited to output parsing and edge cases.
 | `show ip interface [{vlan <id>\| <if-type> <if-id>}]` | PH_SCALANCE-S615-CLI_76 sec 5.1.1.12 p. 76 | **Re-verified 2026-04**。手冊未提供輸出樣本，`ParseInterfaces` 已做多格式容錯。|
 | Firewall `from`/`to` iftype 與 ifstring 為**分開兩個 token**（空格） | PH_SCALANCE-S615-CLI_76 sec 12.3.4.31 p. 627（`from <iftype> [<ifstring>]`）；p. 65 / p. 430 範例 `int vlan 1` | **Verified + fixed 2026-04**。先前 `FirewallRule.From = "vlan1"` 及 `BasicWizardViewModel.InterfaceName = "vlan1"` 無空格，裝置會把 `vlan1` 當成未知 iftype 而拒絕。已改為 `vlan 1` / `vlan 2`；`BuildCreateFirewallRule` 新增空值檢查。|
 | `vlan <vlan-id(1-4094)>` 範圍驗證 + name 32 字元上限 | PH_SCALANCE-S615-CLI_76 sec 8.1.2.10 p. 250；sec 8.1.4.3 p. 265 | **Verified + enforced 2026-04**。`BuildSetVlans` 對 `Vlan.Id < 1 \|\| > 4094` 丟 `ArgumentOutOfRangeException`；`Name.Length > 32` 丟 `ArgumentException`，避免裝置拒絕 cryptic 錯誤。|
+| IPsec `auth psk <string(255)>` / `auth cacert <string(255)> localcert <string(255)>` 長度上限 | PH_SCALANCE-S615-CLI_76 sec 12.4.6.1 p. 728；sec 12.4.6.2 p. 729 | **Verified + enforced 2026-04**。`BuildSetVpnTunnel` 對 PSK 與憑證名超過 255 字元丟例外；PSK 額外禁 CR/LF/`"` 以防 SSH 行級注入。|
 
 ## Re-verification procedure
 

@@ -395,6 +395,45 @@ public class ScalanceCliCommandsTests
     }
 
     [Fact]
+    public void BuildSetVpnTunnel_rejects_psk_over_255_chars()
+    {
+        // Manual sec 12.4.6.2 p. 729: auth psk <string(255)>.
+        var t = new VpnTunnel
+        {
+            Name = "t", Enabled = true, RemoteEndpoint = "1.2.3.4",
+            AuthMode = VpnAuthMode.Psk, PreSharedKey = new string('x', 256),
+        };
+        var act = () => ScalanceCliCommands.BuildSetVpnTunnel(t);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void BuildSetVpnTunnel_rejects_psk_with_newline()
+    {
+        // Transport-layer defence — newline would break the SSH command stream.
+        var t = new VpnTunnel
+        {
+            Name = "t", Enabled = true, RemoteEndpoint = "1.2.3.4",
+            AuthMode = VpnAuthMode.Psk, PreSharedKey = "has\ninjection",
+        };
+        var act = () => ScalanceCliCommands.BuildSetVpnTunnel(t);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void BuildSetVpnTunnel_rejects_cert_name_over_255_chars()
+    {
+        // Manual sec 12.4.6.1 p. 728: auth cacert <string(255)> localcert <string(255)>.
+        var t = new VpnTunnel
+        {
+            Name = "t", Enabled = true, RemoteEndpoint = "1.2.3.4",
+            AuthMode = VpnAuthMode.Certificate, LocalCertificateName = new string('c', 256),
+        };
+        var act = () => ScalanceCliCommands.BuildSetVpnTunnel(t);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
     public void BuildSetVpnTunnel_rejects_name_over_122_chars()
     {
         // Manual sec 12.4.3.2 p. 699: connection name max 122 chars.

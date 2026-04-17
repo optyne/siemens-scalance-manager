@@ -287,14 +287,27 @@ public static class ScalanceCliCommands
         cmds.Add("authentication");
         if (t.AuthMode == VpnAuthMode.Psk && !string.IsNullOrEmpty(t.PreSharedKey))
         {
-            // auth psk <key> (p. 728)
+            // auth psk <string(255)> — manual sec 12.4.6.2 p. 729.
+            if (t.PreSharedKey.Length > 255)
+                throw new ArgumentException(
+                    $"PSK 長度 {t.PreSharedKey.Length} 超過 255 字元（S615 manual p. 729）。",
+                    nameof(t));
+            // Also defend the SSH transport: CR/LF/double-quote would break
+            // the batched command stream.
+            foreach (var c in t.PreSharedKey)
+                if (c == '\r' || c == '\n' || c == '"')
+                    throw new ArgumentException("PSK 含非法控制字元 (CR/LF/\").", nameof(t));
             cmds.Add($"auth psk {t.PreSharedKey}");
         }
         else if (t.AuthMode == VpnAuthMode.Certificate && !string.IsNullOrEmpty(t.LocalCertificateName))
         {
-            // p. 727: auth cacert <ca-name> localcert <local-cert-name>
+            // auth cacert <string(255)> localcert <string(255)> — manual p. 728.
             // VpnTunnel currently only carries one cert name; reuse it for both
             // operands until the model gains a separate CA field.
+            if (t.LocalCertificateName.Length > 255)
+                throw new ArgumentException(
+                    $"certificate name 長度 {t.LocalCertificateName.Length} 超過 255 字元（S615 manual p. 728）。",
+                    nameof(t));
             cmds.Add($"auth cacert {t.LocalCertificateName} localcert {t.LocalCertificateName}");
         }
         cmds.Add("exit"); // back to cli(config-conn-X)#
