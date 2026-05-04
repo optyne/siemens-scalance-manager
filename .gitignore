@@ -10,3 +10,9 @@ TestResults/
 *.pdf
 .claude/scheduled_tasks.lock
 .claude/scheduled_tasks.json
+
+# probe artifacts (device dumps, smoke logs - may contain LAN IPs/config)
+tools/running_config_dump.txt
+tools/*_output.log
+tools/SmokeTest/smoke.log
+*.log
