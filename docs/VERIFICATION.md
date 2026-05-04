@@ -162,6 +162,66 @@ inferred items are limited to output parsing and edge cases.
 | LED 閃爍識別 `das mac own blink [timeout <5-60>]` | PH_SCALANCE-S615-CLI_76 sec 5.5.2.5 p. 147 | **Added 2026-04**。新增 `BuildBlinkOwnLeds(timeoutSeconds)`、`IDeviceDriver.BlinkOwnLedsAsync`；「診斷」分頁新增「閃爍 LED」按鈕，operator 在機櫃中找到對應設備時很實用（實體定位）。|
 | 事件嚴重性門檻 `severity {mail\|log\|syslog} {info\|warning\|critical}` | PH_SCALANCE-S615-CLI_76 sec 13.1.10.11 pp. 820-821 | **Added 2026-04**。新增 `EventSink`/`EventSeverity` enums、`BuildSetEventSeverity` builder、`IDeviceDriver.SetEventSeverityAsync`。UI 直接整合在 Syslog 分頁下方：三個 ComboBox（Syslog/Log/Mail）＋一個「套用門檻」按鈕一次推三行。|
 
+## SSH transport (CRITICAL — 2026-05-03 實機發現)
+
+| 項目 | 來源 | 狀態 |
+|---|---|---|
+| SCALANCE 必須走 ShellStream，**不能**用 `Renci.SshNet.SshClient.CreateCommand(...).Execute()` | 實機 S615 (192.168.0.230, FW V08.00.00) 用 paramiko 兩種模式比對 | **Verified + critical**。`exec_command` 對所有 `show *` / `ping` 指令一律 8 秒 timeout（裝置不送 EOF）；`invoke_shell` + 等 prompt 全部 0.05–2 秒回應。`tools/test_s615_ssh.py` 是回歸用的獨立驗證腳本。`SshSession.RunAsync` / `RunBatchAsync` 已改寫成 ShellStream + read-until-prompt。|
+| **SCALANCE 一個 SSH session 只給一個 shell channel** | 實機 — 第二次 `client.invoke_shell()` 在同一 transport 開的 channel 不送 banner、所有指令都 silent timeout | **Verified + critical**。`SshSession` 必須整個 session 共用 `_shell` 欄位，不可在每次 RunAsync 都開關 channel。Dispose 時 close channel + transport。|
+| Prompt 是 hostname-driven，不是固定 `cli#` | 實機 — `system name PROBE_X` 後 prompt **即時**變成 `PROBE_X#`；config 模式變成 `PROBE_X(config)#` 等 | **Verified + critical**。Prompt regex 必須是 `[A-Za-z_][\w\-]*(?:\([^)\r\n]+\))?[#>]\s*$`（任何 hostname token），不可寫死 `cli`。同一 session 中如果使用者改 hostname，後續指令仍會偵測到新 prompt。|
+| Banner / 預設 prompt 是 `CLI#`（uppercase），不是手冊的 `cli#`（lowercase） | 實機 V08.00.00 banner | **Verified**。S615 V08 firmware 的出廠 prompt 是 `CLI#`；手冊截圖的小寫 `cli(config-…)#` 是舊 firmware 的形式。Regex 必須 case-insensitive 或寬鬆到不依賴大小寫。|
+| `system name <name>` 寫入後 prompt 立刻變化 | 實機 — `configure terminal` 的 prompt 仍是舊名，但 `system name X` 一發出去後續 prompt 馬上變 `X(config)#` | **Verified**。Driver 不需要做 prompt 同步，因為通用 regex 自動跟著走。但這影響 `ApplyBasicWizardAsync`：若 wizard 順序是 `hostname → interface → dns → ntp → password`，hostname 改完後同 session 後續指令的 prompt 已經換了，仍可正常解析。|
+| **V08 韌體拒絕 `no system name`** | 實機 — `% Invalid input detected at '^' marker`（caret 指向 `system` 之前） | **Found 2026-05-03**。手冊未明確記錄 reset syntax；要清掉 hostname 必須用 `system name CLI`（換成預設 token）而非 `no system name`。Driver 的「重設為預設」路徑要改用 `system name CLI`。|
+| Pager (`--More--`) 觸發條件 | 實機 — vt100 200×200 視窗下，`show ntp info` / `show vlan` / `show ip interface`（每個 ~600 bytes）**都不會**觸發 pager；`show running-config` 預期會觸發 | **Verified for short reads**。`SshSession.ReadUntilPromptAsync` 仍應加 pager 偵測（送空白鍵翻頁），對 `show running-config` 與 `show configbackup` 等大輸出指令必要。`tools/test_s615_ssh.py:read_until_prompt` 已實作可參考。|
+| `show running-config \| include <pattern>` **不支援** | 實機 — 回 `% Invalid Command` | **Found 2026-05-03**。S615 V08 沒有 `\| include` 過濾器。任何用此語法的程式碼路徑要改成 read 全部後在客戶端 grep。|
+| ping 輸出格式不是 Cisco-IOS | 實機回 `Pinging 192.168.0.1 with 32 bytes of data\nSeq: 1, Reply Not Received From : 192.168.0.1, Timeout : 1 secs\n--- 192.168.0.1 Ping Statistics ---\n1 Packets Transmitted, 0 Packets Received, 100% Packets Loss` | **Found 2026-05-03**。`PingAsync` 的 parser 若解析統計列要對應這個格式（`X Packets Transmitted, Y Packets Received, Z% Packets Loss`）。|
+| `show vlan` port 格式是 `Fa0/1, Fa0/2, …`（fast-ethernet interface-type） | 實機 | **Verified**。VERIFICATION.md 第 113 行已記錄 CLI 用 `fa 0/N`、`0.N` 只是 WBM 顯示格式 — 實機輸出確認。Parser（如果有）應接受 `Fa0/N` 格式。|
+| 韌體 banner 內部代號 `SCALANCE S600` 而非 `S615` | 實機 banner: "Command Line Interface SCALANCE S600" | **Note**。S615 / M800 共用同一韌體，內部代號用 S600。判斷裝置型號要靠 SNMP `sysObjectID` 或 WBM「Versions」頁的 Order ID，不可用 banner。|
+
+## 2026-05-04 V08 實機 running-config 對手冊驗證(192.168.1.1)
+
+| 項目 | 來源 | 狀態 |
+|---|---|---|
+| **VLAN `ports` 真實語法 — 不能加括號** | 真機 V08 `show running-config vlan 1 all` 顯示 `ports fastethernet 0/1-4 untagged fastethernet 0/1-4`;互動式 SSH 確認 `ports ()` / `ports untagged (...)` / `ports (...) untagged (...)` 全部回 `% Invalid input detected at '^' marker` | **Fixed 2026-05-04**。手冊 sec 8.1.4.5 p. 266-267 寫 `ports (<tagged-list>) [untagged (<untagged-list>)]`,**括號是 metasyntax 不是字面字元**。真實格式:`ports fastethernet <member-list> [untagged fastethernet <untagged-list>]`,**第一個 arg 是 member 完整清單(tagged + untagged 都列入)**。`BuildSetVlans` 改用 `fastethernet`(裝置自己 emit 長形)+ 無括號 + member 清單包含 untagged + tagged。port 順序按 PortIndex 排序方便 diff。|
+| **`show running-config` 必須帶 `<type>` 參數** | 真機 V08 `help` 顯示語法為 `show running-config {list-types \| <type> [...]}` | **Found 2026-05-04**。無參數版在 V08 拒絕。`BackupConfigAsync` 目前送無參數版,需改成 loop 38 個 type(由 `show running-config list-types` 列出)分次抓並拼接;或改用 SFTP `save filetype <X>` 拉檔案。|
+| **`show running-config <X> all` 對於預設值才完整** | 真機 V08 `show running-config vlan 1` 空輸出,加 `all` 才看到 | **Found 2026-05-04**。沒有 `all` 旗標時 V08 只顯示「跟預設不同」的部分。對 backup 場景必須加 `all`。|
+| **interface `alias <name>`** | 手冊 sec 5.1.12.1 p. 99;真機 `show running-config interface vlan 1 all` 顯示 `alias INT` | **Fixed 2026-05-04**。`InterfaceIpConfig` 加 `Alias` 欄位、`BuildSetInterface` 在 IP 設定前 emit `alias X`。round-trip load → modify → apply 不再弄丟 alias。|
+| **`tia-interface` flag** | 手冊 sec 8.x p. 269;真機 `show running-config interface vlan 1 all` 顯示 `tia-interface` | **Fixed 2026-05-04**。`InterfaceIpConfig` 加 `TiaInterface`(bool)、`BuildSetInterface` 對 vlan N interfaces 在設定 IP 前 emit `tia-interface`。手冊明訂只有一個 VLAN 能是 TIA,設一個會自動清其他;builder 因此**只 set 不 clear**(避免 read-modify-write 把別的 VLAN 的 TIA flag silent-clear)。`ParseInterfaces` 也加 `<name> is configured as tia-interface` 識別。|
+| **DNS `server type` 預設是 `all`,不是 `manual`** | 真機 `show running-config dnsclient all` 顯示 `server type all`(裝置出廠預設) | **Fixed 2026-05-04**。`BuildSetDns` 之前一律寫 `server type manual`;伺服器空白時又送 `shutdown` 等於關閉整個 DNS client。改成:`DnsConfig` 加 `Enabled`(預設 true)+ `ServerType`(All/Manual,預設 All)兩欄,builder 依顯式設定 emit。原本 read-modify-write 流程會把裝置從 `server type all` 強制改成 manual + 把 DHCP-learned servers 排除,目前修正。|
+| **SNMP UDP 在 Wi-Fi 上會 timeout — 需要 retry** | 真機 — 同一 SmokeTest 跑兩次,第一次 GetVlans 28 ms,第二次 5 s timeout(UDP 掉包) | **Fixed 2026-05-04**。`SnmpClient.GetAsync` / `WalkAsync` 加入 3-attempt retry,每 attempt 5 s 上限。SharpSnmpLib 的 `Lextm.SharpSnmpLib.Messaging.TimeoutException` 跟 `System.TimeoutException` 撞名,用 `using SnmpTimeout = ...` alias 避開 CS0104。|
+| **SNMP read community 為 `public`、write community 為 `private`** | 真機 `show snmp community` 顯示 `SIMATICNETRD name public` / `SIMATICNETWR name private` | **Confirmed 2026-05-04**。SCALANCE 預設 SNMPv2c read=public/write=private。SmokeTest / App 預設值正確。|
+| **SCALANCE 一個 SSH session 只給一個 shell channel** | 真機 — 第二次 `client.invoke_shell()` 在同一 transport 開的 channel 不送 banner、所有指令都 silent timeout | **Verified, fixed 2026-05-03**。`SshSession` 必須整個 session 共用 `_shell` 欄位,不可在每次 RunAsync 都開關 channel。|
+| **裝置 Auto-Save mode** | 真機 `show device information` 顯示 `Config Save Mode: Auto-Save / Config Change: Saved` | **Found 2026-05-04**。Auto-Save 模式下 `configure terminal` 改完馬上自動儲存。`write startup-config` 在這模式下是 no-op,但對手動模式仍必要 → builder 永遠送(保險)。|
+| **`show device information` 提供豐富 metadata** | 真機 — MAC、Serial Number、System Up Time、Restart Counter、Login Authentication Mode、Config Save Mode 等 | **Note 2026-05-04**。可加 `GetDeviceInfoAsync` driver 路徑取代 / 補強 SNMP MIB-II。Serial Number 對 asset tracking 重要,SNMP MIB-II 沒有(只有 sysObjectID)。|
+| **ParseInterfaces V08 stanza 格式** | 真機 `show ip interface` 輸出多行 stanza:`vlan1 is up, line protocol is up` / `IP Address 192.168.1.1` / `Subnet Mask 255.255.255.0`(沒冒號) | **Fixed 2026-05-04**。Parser 原本只認 Cisco-style `Interface vlan1` 區段頭跟 `Key: Value` 帶冒號的行,V08 都不是這格式。新增 V08 stanza header 偵測(必須 `, line protocol` 防止誤匹配 metadata 行)+ 沒冒號 key-value 識別 + tabular fallback IP 格式驗證(防止 `vlan1 is up` 被當成 `vlan1=is`)+ 重複介面去重。|
+| **ListConfigBackups parser 過濾** | 真機 `show configbackup` 輸出含 echo 跟 prompt | **Fixed 2026-05-04**。`ParseConfigBackupNames` 之前把 `show` 跟 `CLI#` 也當成 backup 名字。新增過濾:`show ` 開頭、prompt regex、ANSI 殘渣、`configbackup` 字面。|
+
+## VPN / IPsec builder 對手冊逐行驗證(2026-05-04)
+
+`BuildSetVpnTunnel` 跟 PH_SCALANCE-S615-CLI_76 章節 12.4 完整對齊,逐 sub-command 確認:
+
+| Builder 指令 | 手冊章節 | 模式 |
+|---|---|---|
+| `ipsec` | sec 12.4.2.1 p. 697 | global → IPSEC |
+| `remote-end name <name(128)>` | sec 12.4.3.10 p. 705 | IPSEC → IPSEC REMOTE END |
+| `addr <subnet\|dns>` | sec 12.4.4.1 p. 711 | REMOTE END |
+| `conn-mode {roadwarrior\|standard}` | sec 12.4.4.3 p. 713 | REMOTE END |
+| `subnet <subnet\|dns>` | sec 12.4.4.5 p. 715 | REMOTE END |
+| `connection name <name(122)>` | sec 12.4.3.2 p. 699 | IPSEC → IPSEC CONNECTION |
+| `rmend name <name(128)>` | sec 12.4.5.6 p. 722 | CONNECTION |
+| `loc-subnet <subnet\|dns>` | sec 12.4.5.3 p. 719 | CONNECTION |
+| `k-proto {ikev1\|ikev2}` | sec 12.4.5.2 p. 718 | CONNECTION |
+| `operation {start\|wait\|disabled\|...}` | sec 12.4.5.4 p. 719 | CONNECTION |
+| `authentication` | sec 12.4.5.1 p. 717 | CONNECTION → AUTHENTICATION |
+| `auth psk <string(255)>` | sec 12.4.6.2 p. 728 | AUTHENTICATION |
+| `auth cacert <ca> localcert <local>` | sec 12.4.6.1 p. 727 | AUTHENTICATION |
+| `phase <num(1-2)>` | sec 12.4.5.5 p. 721 | CONNECTION → PHASE 1/2 |
+| `no default-ciphers` / `ike-encryption` / `ike-auth` / `ike-keyderivation dhgroup N` / `ike-lifetime` | sec 12.4.7.* pp. 734-744 | PHASE 1 |
+| `no default-ciphers` / `esp-encryption` / `esp-auth` / `esp-keyderivation` / `lifetime` | sec 12.4.8.* pp. 745-754 | PHASE 2 |
+| `no shutdown`(IPsec global enable) | sec 12.4.3.18-19 pp. 709-710 | IPSEC |
+
+**結論**:VPN builder 不需修。語法、模式階層、參數順序全部對。
+
 ## Re-verification procedure
 
 1. Obtain the S615 CLI manual (`PH_SCALANCE-S615-CLI_76.pdf`) and drop it at

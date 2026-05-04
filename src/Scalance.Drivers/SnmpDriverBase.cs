@@ -40,19 +40,26 @@ public abstract class SnmpDriverBase : IDeviceDriver
         if (Snmp is null) return OperationResult<DeviceStatus>.Fail("Not connected.");
         try
         {
-            var scalars = await Snmp.GetAsync(new[]
-            {
-                StandardOids.SysName,
-                StandardOids.SysDescr,
-                StandardOids.SysUpTime
-            }, ct);
+            // Real-device evidence (S615 V08, 192.168.1.1, 2026-05-04 over
+            // Wi-Fi): issuing all three sysX OIDs in a SINGLE GetRequest
+            // produces a larger response packet that SCALANCE's small SNMP
+            // engine drops under any UDP loss, leading to 30 s timeouts even
+            // with retry. Single-OID requests (smaller response) succeed in
+            // 30-200 ms. So we split here — each call goes through
+            // SnmpClient.GetAsync which already retries on per-attempt
+            // timeout. Sequential rather than parallel: each is tiny, and
+            // serial avoids overlapping UDP requests confusing the device.
+            var sysName = await Snmp.GetSingleAsync(StandardOids.SysName, ct);
+            var sysDescr = await Snmp.GetSingleAsync(StandardOids.SysDescr, ct);
+            var sysUpTime = await Snmp.GetSingleAsync(StandardOids.SysUpTime, ct);
 
             var ports = await ReadPortsAsync(ct);
+            var descrText = sysDescr.Data.ToString();
             var status = new DeviceStatus(
-                SystemName: scalars[0].Data.ToString(),
-                SystemDescription: scalars[1].Data.ToString(),
-                Firmware: ExtractFirmware(scalars[1].Data.ToString()),
-                Uptime: TimeSpanFromTicks(scalars[2].Data),
+                SystemName: sysName.Data.ToString(),
+                SystemDescription: descrText,
+                Firmware: ExtractFirmware(descrText),
+                Uptime: TimeSpanFromTicks(sysUpTime.Data),
                 Ports: ports);
             return OperationResult<DeviceStatus>.Ok(status);
         }

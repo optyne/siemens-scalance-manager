@@ -556,6 +556,25 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
             && int.TryParse(parts[1], out _);
     }
 
+    /// <summary>
+    /// Conservative check that <paramref name="token"/> looks like an
+    /// interface identifier. Used so the V08 "<name> is up" stanza header
+    /// doesn't fire on unrelated prose like "Login is local".
+    /// Recognised: vlan&lt;N&gt;, ppp&lt;N&gt;, fa 0/N, eth N, ethernet 0/N,
+    /// or a bare module-dot-port form like 0.1.
+    /// </summary>
+    private static bool IsLikelyInterfaceName(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return false;
+        var t = token.ToLowerInvariant();
+        if (t.StartsWith("vlan") && t.Length > 4 && char.IsDigit(t[4])) return true;
+        if (t.StartsWith("ppp") && t.Length > 3 && char.IsDigit(t[3])) return true;
+        if (t.StartsWith("fa") || t.StartsWith("ethernet") || t.StartsWith("gi"))
+            return true;
+        if (IsModuleDotPort(t)) return true;
+        return false;
+    }
+
     private static int? ExtractVlanId(string interfaceName)
     {
         if (string.IsNullOrWhiteSpace(interfaceName)) return null;
@@ -680,29 +699,63 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
 
     internal static IReadOnlyList<InterfaceIpConfig> ParseInterfaces(string output)
     {
-        // S615 "show ip interface" output format (multi-section):
-        //   Interface vlan1
-        //     IP Address: 192.168.1.1
-        //     Subnet Mask: 255.255.255.0
-        //     ...
-        //   Interface vlan2
-        //     ...
+        // S615 "show ip interface" V08 firmware output (multi-section, NO colons,
+        // NO "Interface" prefix — confirmed against real S615 192.168.1.1
+        // 2026-05-04):
+        //   vlan1 is up, line protocol is up
+        //   vlan1 is configured as tia-interface
+        //   IP Address 192.168.1.1
+        //   Subnet Mask 255.255.192.0
+        //   Broadcast Address  192.168.63.255
+        //   IP address collision detection status is active
+        //   vlan2 is up, line protocol is down
+        //   IP Address 0.0.0.0
+        //   ...
         //
-        // Legacy "show ip interface brief" (Cisco-ish):
-        //   Interface    IP-Address    OK? Method Status Protocol
-        //   vlan1        192.168.1.1   YES manual up     up
+        // Older / hypothetical formats also handled:
+        //   - "Interface vlan1 / IP Address: ..." (with colon, with prefix)
+        //   - "vlan1 192.168.1.1 ..." (Cisco-ish brief tabular)
         //
-        // This parser handles both: scans for "Interface <name>" section headers OR
-        // tabular single-line entries. Returns at minimum the interface names even
-        // if IP/mask extraction fails.
+        // This parser tries each pattern in turn. Returns at minimum the
+        // interface names even if IP/mask extraction fails.
         var result = new List<InterfaceIpConfig>();
         InterfaceIpConfig? current = null;
+        // Matches V08 stanza header: `<name> is {up|down}, line protocol is {up|down}`
+        // — name is captured. We deliberately don't require the trailing "line
+        // protocol" so that minor format drift across firmware versions still
+        // matches (e.g. just `<name> is up`).
+        var v08Header = new System.Text.RegularExpressions.Regex(
+            @"^(?<name>\S+)\s+is\s+(up|down)\b",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
 
         foreach (var raw in output.Split('\n'))
         {
             var line = raw.TrimEnd();
             if (line.Length == 0) continue;
             var trimmed = line.Trim();
+
+            // V08 section header: "<name> is up, line protocol is up"
+            // — but ONLY when followed by ", line protocol" (otherwise we would
+            //   mis-fire on lines like "<name> is configured as tia-interface").
+            if (trimmed.Contains(", line protocol", StringComparison.OrdinalIgnoreCase))
+            {
+                var m = v08Header.Match(trimmed);
+                if (m.Success)
+                {
+                    var name = m.Groups["name"].Value;
+                    if (!string.IsNullOrWhiteSpace(name) &&
+                        IsLikelyInterfaceName(name))
+                    {
+                        current = new InterfaceIpConfig
+                        {
+                            InterfaceName = name,
+                            VlanId = ExtractVlanId(name),
+                        };
+                        result.Add(current);
+                        continue;
+                    }
+                }
+            }
 
             // Section header: "Interface vlan1" or "Interface ethernet 0/1"
             if (trimmed.StartsWith("Interface ", StringComparison.OrdinalIgnoreCase) &&
@@ -717,6 +770,52 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
                         VlanId = ExtractVlanId(name),
                     };
                     result.Add(current);
+                    continue;
+                }
+            }
+
+            // V08 stanza metadata lines that don't have key:value form.
+            //   "vlan1 is configured as tia-interface" — TIA flag
+            // The line is NOT a section header (already filtered by
+            // ", line protocol" check above), so we can use it as
+            // metadata for the current interface.
+            if (current is not null &&
+                trimmed.Contains(" is configured as tia-interface", StringComparison.OrdinalIgnoreCase))
+            {
+                current.TiaInterface = true;
+                continue;
+            }
+
+            // V08 colon-less "IP Address 192.168.1.1" / "Subnet Mask 255.255.255.0"
+            if (current is not null)
+            {
+                if (trimmed.StartsWith("IP Address ", StringComparison.OrdinalIgnoreCase) &&
+                    !trimmed.StartsWith("IP Address collision", StringComparison.OrdinalIgnoreCase) &&
+                    !trimmed.StartsWith("IP Address Type", StringComparison.OrdinalIgnoreCase))
+                {
+                    var v = trimmed.Substring("IP Address ".Length).Trim();
+                    var first = v.Split(new[] { ' ', '/' }, 2)[0];
+                    if (System.Net.IPAddress.TryParse(first, out _) && first != "0.0.0.0")
+                        current.IpAddress = first;
+                    continue;
+                }
+                if (trimmed.StartsWith("Subnet Mask ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var v = trimmed.Substring("Subnet Mask ".Length).Trim();
+                    if (System.Net.IPAddress.TryParse(v, out _) && v != "0.0.0.0")
+                    {
+                        current.SubnetMask = v;
+                        current.PrefixLength ??= MaskToPrefix(v);
+                    }
+                    continue;
+                }
+                if (trimmed.StartsWith("Broadcast Address ", StringComparison.OrdinalIgnoreCase))
+                    continue; // unused; just skip cleanly
+                if (trimmed.StartsWith("IP address allocation method ",
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    var v = trimmed.Substring("IP address allocation method ".Length).Trim().ToLowerInvariant();
+                    current.DhcpEnabled = v.Contains("dynamic") || v.Contains("dhcp");
                     continue;
                 }
             }
@@ -808,10 +907,28 @@ public abstract class ScalanceCliDriverBase : SnmpDriverBase
             }
             else continue;
 
+            // CRITICAL: Don't fabricate a tabular row from an unrelated stanza
+            // line. The V08 firmware emits prose like
+            //   "vlan1 is configured as tia-interface"
+            // which the tabular branch would turn into a duplicate entry
+            // (ifName="vlan1", ip="is"). If the second token isn't a parseable
+            // IP, we're definitely not in a tabular row — bail.
+            if (!System.Net.IPAddress.TryParse(ip, out _)) continue;
+            // Also: if we already created an entry for this interface name in
+            // the V08 stanza pass above, don't add a duplicate here.
+            if (result.Any(r => r.InterfaceName.Equals(ifName, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
             var cfg = new InterfaceIpConfig { InterfaceName = ifName };
+            // Validate that `ip` actually parses as an IP — the V08 stanza
+            // emits lines like "vlan1 is up, line protocol is up" where the
+            // tabular parser otherwise picks up "is" as the IP. The V08
+            // header detection above should have already consumed that line,
+            // but guard anyway.
             if (!string.IsNullOrEmpty(ip) &&
                 !ip.Equals("unassigned", StringComparison.OrdinalIgnoreCase) &&
-                !ip.Equals("-", StringComparison.OrdinalIgnoreCase))
+                !ip.Equals("-", StringComparison.OrdinalIgnoreCase) &&
+                System.Net.IPAddress.TryParse(ip, out _))
             {
                 cfg.IpAddress = ip;
             }

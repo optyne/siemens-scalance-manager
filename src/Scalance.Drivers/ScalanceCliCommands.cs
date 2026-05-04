@@ -94,7 +94,10 @@ public static class ScalanceCliCommands
             var taggedPorts = new List<string>();
             var untaggedPorts = new List<string>();
 
-            foreach (var p in v.Ports)
+            // Sort by physical port index so the emitted command matches the
+            // device's own running-config order — easier to diff visually
+            // when an operator compares before/after.
+            foreach (var p in v.Ports.OrderBy(x => x.PortIndex))
             {
                 if (p.Mode == VlanMemberMode.Tagged)
                     taggedPorts.Add(FormatCliPortId(p.PortIndex));
@@ -105,14 +108,39 @@ public static class ScalanceCliCommands
 
             if (taggedPorts.Count > 0 || untaggedPorts.Count > 0)
             {
-                var portsCmd = "ports";
-                // Tagged list: "fa 0/1,0/2" inside the outer parens.
-                portsCmd += taggedPorts.Count > 0
-                    ? $" (fa {string.Join(",", taggedPorts)})"
-                    : " ()";
+                // S615 V08 firmware (real device 2026-05-04, 192.168.1.1)
+                // rejects all of these:
+                //   ports ()                         — empty parens
+                //   ports untagged (fa 0/1)          — no leading member list
+                //   ports (fa 0/1) untagged (fa 0/1) — leading parens
+                //
+                // What `show running-config vlan 1 all` reveals the device
+                // ACTUALLY accepts (and emits when reading its own config):
+                //   ports fastethernet 0/1-4 untagged fastethernet 0/1-4
+                //
+                // Differences from the manual's documented syntax (sec 8.1.4.5
+                // p. 266-267 in PH_SCALANCE-S615-CLI_76):
+                //   - NO parentheses anywhere — the manual's `(<list>)` is
+                //     metasyntax notation, not literal CLI characters
+                //   - First arg is the full *member* list (both tagged and
+                //     untagged ports), not just the tagged ones
+                //   - `fastethernet` is the canonical iftype name; the
+                //     short alias `fa` MAY work but the device emits long
+                //     form, so we play safe and emit the same
+                //
+                // Layout:
+                //   ports fastethernet <member-list> [untagged fastethernet <untagged-list>]
+                //                                   [forbidden fastethernet <forbidden-list>]
+                //
+                // Where <member-list> = tagged + untagged (excluded ports
+                // are simply absent from the command).
+                var memberPorts = new List<string>();
+                memberPorts.AddRange(untaggedPorts);
+                memberPorts.AddRange(taggedPorts);
 
+                var portsCmd = $"ports fastethernet {string.Join(",", memberPorts)}";
                 if (untaggedPorts.Count > 0)
-                    portsCmd += $" untagged (fa {string.Join(",", untaggedPorts)})";
+                    portsCmd += $" untagged fastethernet {string.Join(",", untaggedPorts)}";
 
                 cmds.Add(portsCmd);
             }
@@ -170,6 +198,34 @@ public static class ScalanceCliCommands
             // For physical ports: interface <type> <M.P> -> cli(config-if-$$$)#
             $"interface {ifName}",
         };
+
+        // Alias (S615 CLI manual sec 5.1.12.1 p. 99). Pure metadata, but the
+        // device persists it; the running-config dump from a real S615 V08
+        // (192.168.1.1, 2026-05-04) shows `alias INT` on vlan1 even though
+        // it has no effect on traffic. Preserve it on round-trip.
+        if (!string.IsNullOrWhiteSpace(cfg.Alias))
+        {
+            // Alias is a free-form label but lives on the same SSH command
+            // line — defend the stream against CR/LF/quote.
+            foreach (var c in cfg.Alias!)
+                if (c == '\r' || c == '\n' || c == '"')
+                    throw new ArgumentException(
+                        "Alias 含非法控制字元 (CR/LF/\").", nameof(cfg));
+            cmds.Add($"alias {cfg.Alias}");
+        }
+
+        // TIA interface (S615 CLI manual: `tia-interface` on a VLAN
+        // interface marks it as the PROFINET / DCP discovery target).
+        // Manual is explicit: only ONE VLAN interface can be the TIA
+        // interface at a time; setting it implicitly clears it on every
+        // other VLAN. So we ONLY emit when the caller asked for true and
+        // we're configuring a vlan<N> interface — never silently clear
+        // someone else's TIA flag.
+        if (cfg.TiaInterface &&
+            ifName.StartsWith("vlan ", StringComparison.OrdinalIgnoreCase))
+        {
+            cmds.Add("tia-interface");
+        }
 
         if (cfg.DhcpEnabled)
         {
@@ -1219,17 +1275,37 @@ public static class ScalanceCliCommands
     {
         if (string.IsNullOrWhiteSpace(output)) return Array.Empty<string>();
         var names = new List<string>();
+        // Echo of the issued command (`show configbackup`) is included in
+        // ShellStream output; so is the trailing CLI prompt. Filter them out.
+        // Also: SCALANCE V08 wraps the backup table in `---` separator lines
+        // and a `Name` header.
         foreach (var raw in output.Split('\n'))
         {
             var line = raw.Trim();
             if (line.Length == 0) continue;
+            // 1. The command echo: starts with the verb "show".
+            if (line.StartsWith("show ", StringComparison.OrdinalIgnoreCase)) continue;
+            // 2. The CLI prompt at end of buffer: matches the same shape we
+            //    use in SshSession.PromptPattern. We compile a relaxed form
+            //    inline since this static helper can't reach into the protocol
+            //    layer without a circular reference.
+            if (System.Text.RegularExpressions.Regex.IsMatch(line,
+                @"^[A-Za-z_][\w\-]*(?:\([^)\r\n]+\))?[#>]\s*$"))
+                continue;
+            // 3. Section banners / separators on the running device.
             if (line.StartsWith("Available", StringComparison.OrdinalIgnoreCase)) continue;
             if (line.Contains("---")) continue;
-            // Skip a likely header row like "Name   Size".
             if (line.StartsWith("Name", StringComparison.OrdinalIgnoreCase)) continue;
+            // 4. ANSI / VT escape leftovers if any slipped through.
+            if (line.StartsWith("\x1B")) continue;
+
             var parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length == 0) continue;
-            names.Add(parts[0]);
+            // First token is the backup file name (manual p. 136 sample output).
+            // Belt-and-braces: drop tokens that are obviously CLI noise.
+            var name = parts[0];
+            if (name.Equals("configbackup", StringComparison.OrdinalIgnoreCase)) continue;
+            names.Add(name);
         }
         return names;
     }
@@ -1658,16 +1734,29 @@ public static class ScalanceCliCommands
         // sec 9.7.3.2 p. 415. `all` removes every manual DNS entry.
         cmds.Add("no manual all");
 
-        if (servers.Count > 0)
-        {
-            cmds.Add("server type manual");
-            foreach (var s in servers) cmds.Add($"manual srv {s}");
-            cmds.Add("no shutdown");
-        }
-        else
-        {
-            cmds.Add("shutdown");
-        }
+        // `server type` selects which sources the DNS client uses (manual
+        // sec 9.7 `server type {all|manual|...}`). The device's factory
+        // default on V08 is `all` (DHCP-learned + manual). The App's prior
+        // behaviour was to ALWAYS write `manual` whenever DNS was touched,
+        // which silently suppressed DHCP-learned servers — wrong if the
+        // operator just wanted to add a manual fallback. We now follow the
+        // explicit ServerType field; absent that, the model's default (All)
+        // matches the device's factory default.
+        cmds.Add(cfg.ServerType == DnsServerType.Manual
+            ? "server type manual"
+            : "server type all");
+
+        // Add the manual server list. With ServerType=All these are extras
+        // on top of DHCP-learned; with ServerType=Manual they are the only
+        // resolvers used.
+        foreach (var s in servers) cmds.Add($"manual srv {s}");
+
+        // Enable / disable the DNS client. `shutdown` disables it entirely
+        // (sec 9.7.3.4 p. 416). The previous logic disabled DNS whenever
+        // the manual list was empty, which was wrong: with ServerType=All
+        // the client should stay enabled to use DHCP-learned servers. Now
+        // we honour the explicit Enabled flag (default true).
+        cmds.Add(cfg.Enabled ? "no shutdown" : "shutdown");
         cmds.Add("exit");
 
         // Domain name: per manual p. 10741 the command is "ip domain name"

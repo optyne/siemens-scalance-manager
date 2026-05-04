@@ -4,6 +4,11 @@ using Lextm.SharpSnmpLib.Messaging;
 using Lextm.SharpSnmpLib.Security;
 using Scalance.Core.Models;
 
+// SharpSnmpLib defines its own TimeoutException in Lextm.SharpSnmpLib.Messaging
+// — alias it so we can reference both it and System.TimeoutException without
+// the CS0104 ambiguity warning.
+using SnmpTimeout = Lextm.SharpSnmpLib.Messaging.TimeoutException;
+
 namespace Scalance.Protocols.Snmp;
 
 public sealed class SnmpClient : IAsyncDisposable
@@ -31,13 +36,61 @@ public sealed class SnmpClient : IAsyncDisposable
         _timeout = timeout ?? TimeSpan.FromSeconds(5);
     }
 
+    /// <summary>Number of retries on UDP packet loss before surfacing a
+    /// timeout. SNMP runs over UDP and field-tested on Wi-Fi against a real
+    /// S615 (192.168.1.1, 2026-05-04) showed intermittent 5-second timeouts
+    /// from the same machine that SSH talked to fine — classic UDP loss.
+    /// 3 attempts with 5-second per-attempt budget gives a 15-second worst
+    /// case but ~99 % success rate.</summary>
+    private const int Retries = 3;
+
     public async Task<IReadOnlyList<Variable>> GetAsync(IEnumerable<string> oids, CancellationToken ct = default)
     {
         var vars = oids.Select(o => new Variable(new ObjectIdentifier(o))).ToList();
         if (_version == SnmpVersion.V2c)
         {
-            var result = await Messenger.GetAsync(VersionCode.V2, _endpoint, _communityRead, vars);
-            return result.ToList();
+            // SharpSnmpLib's `Messenger.GetAsync` 4-arg overload doesn't
+            // accept a timeout, and racing it with `Task.Delay` leaves the
+            // underlying UDP request pending — across 3 retries that means
+            // 3 concurrent in-flight requests, which SCALANCE's small SNMP
+            // engine handles poorly. Real-device evidence (192.168.1.1
+            // 2026-05-04): GetVlans via walk succeeded in 5 s after one
+            // retry, but GetStatus via this old retry path took 20 s and
+            // failed all 3 attempts.
+            //
+            // Use the synchronous `Messenger.Get(version, endpoint,
+            // community, vars, timeoutMs)` wrapped in Task.Run so each
+            // attempt cleanly waits for a single response or hits the
+            // explicit timeout. No request leak between attempts.
+            Exception? last = null;
+            for (int attempt = 1; attempt <= Retries; attempt++)
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    var result = await Task.Run(() => Messenger.Get(
+                        VersionCode.V2,
+                        _endpoint,
+                        _communityRead,
+                        vars,
+                        (int)_timeout.TotalMilliseconds), ct);
+                    return result.ToList();
+                }
+                catch (SnmpTimeout ex)
+                {
+                    last = ex;
+                }
+                catch (System.TimeoutException ex)
+                {
+                    last = ex;
+                }
+                catch (System.Net.Sockets.SocketException ex)
+                {
+                    last = ex;
+                }
+            }
+            throw last ?? new System.TimeoutException(
+                $"SNMP GET failed after {Retries} attempts of {_timeout.TotalSeconds:F0}s each.");
         }
         return await GetV3Async(vars, ct);
     }
@@ -50,21 +103,38 @@ public sealed class SnmpClient : IAsyncDisposable
 
     public async Task<IReadOnlyList<Variable>> WalkAsync(string rootOid, CancellationToken ct = default)
     {
-        var results = new List<Variable>();
         if (_version == SnmpVersion.V2c)
         {
-            await Task.Run(() =>
+            Exception? last = null;
+            for (int attempt = 1; attempt <= Retries; attempt++)
             {
-                Messenger.Walk(
-                    VersionCode.V2,
-                    _endpoint,
-                    _communityRead,
-                    new ObjectIdentifier(rootOid),
-                    results,
-                    (int)_timeout.TotalMilliseconds,
-                    WalkMode.WithinSubtree);
-            }, ct);
-            return results;
+                ct.ThrowIfCancellationRequested();
+                var results = new List<Variable>();
+                try
+                {
+                    await Task.Run(() =>
+                    {
+                        Messenger.Walk(
+                            VersionCode.V2,
+                            _endpoint,
+                            _communityRead,
+                            new ObjectIdentifier(rootOid),
+                            results,
+                            (int)_timeout.TotalMilliseconds,
+                            WalkMode.WithinSubtree);
+                    }, ct);
+                    return results;
+                }
+                catch (SnmpTimeout ex)
+                {
+                    last = ex;
+                }
+                catch (System.TimeoutException ex)
+                {
+                    last = ex;
+                }
+            }
+            throw last ?? new System.TimeoutException("SNMP WALK failed after retries.");
         }
         throw new NotSupportedException("SNMPv3 walk not implemented yet.");
     }
